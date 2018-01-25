@@ -8,5 +8,5 @@ install:
 
 # command to run tests
 script:
-  - tests.py
+  - flaskapp/tests.py
 

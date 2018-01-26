@@ -5,8 +5,11 @@ python:
 # command to install dependencies
 install:
   - pip install -r requirements.txt
+  - pip install coveralls
 
 # command to run tests
-script:
-  - flaskapp/tests.py
+script: coverage run flaskapp/tests.py test
+
+after_success:
+    coveralls
 

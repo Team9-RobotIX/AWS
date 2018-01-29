@@ -2,3 +2,4 @@
 .cache/
 
 flaskapp/__pycache__
+flaskapp/flaskapp.wsgi

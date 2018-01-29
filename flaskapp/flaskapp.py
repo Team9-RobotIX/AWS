@@ -7,7 +7,7 @@ app = Flask(__name__)
 #Reads the stored values and outputs them.
 @app.route('/', methods = ['GET', 'POST'])
 def index():
-    fh = open("store.txt", "r")
+    fh = open("/home/ubuntu/flaskapp/store.txt", "r")
     return fh.read()
 
 
@@ -23,7 +23,7 @@ def post():
     if( (int(onOff) in [0,1]) and (-180 <= float(turnAngle) <= 180) ):
         
         #Open store.txt in write mode.
-        fh = open("store.txt", "w")
+        fh = open("/home/ubuntu/flaskapp/store.txt", "w")
         
         #Store params as json and write to store.txt.
         jsonDict = json.dumps({"onOff:":int(onOff), "turnAngle":float(turnAngle)})

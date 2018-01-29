@@ -1,2 +1,4 @@
 .local/
 .cache/
+
+flaskapp/__pycache__

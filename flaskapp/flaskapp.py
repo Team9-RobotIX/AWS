@@ -39,7 +39,7 @@ def post():
 #Used if there is an error in the application.
 @app.errorhandler(Exception)
 def exception_handler(error):
-    return "Oh no!"  + repr(error)
+    return "Oh no! "  + repr(error)
 
 
 if __name__ == '__main__':

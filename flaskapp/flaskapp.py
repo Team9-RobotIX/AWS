@@ -22,16 +22,16 @@ def post():
 
     #Check params are in expected ranges.
     if( (int(onOff) in [0,1]) and (-180 <= float(turnAngle) <= 180) ):
-        
+
         #Open store.txt in write mode.
         fh = open(db, "w")
-        
+
         #Store params as json and write to store.txt.
-        jsonDict = json.dumps({"onOff:":int(onOff), "turnAngle":float(turnAngle)})
-        fh.write(jsonDict)                    
+        jsonDict = json.dumps({"onOff":int(onOff), "turnAngle":float(turnAngle)})
+        fh.write(jsonDict)
         fh.close()
 
-        return 'Successfully set onOff:'+str(onOff) +' turnAngle: '+str(turnAngle) 
+        return str (jsonDict)
     else:
         return 'invalid request'
 

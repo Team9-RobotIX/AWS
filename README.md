@@ -34,5 +34,4 @@ TODO
 
 ## Deployment
 
-TODO
-
+The website has two servers which will automatically pull changes from the development and master branches. They are `18.219.63.23/development` and `18.219.63.23/production`, respectively.

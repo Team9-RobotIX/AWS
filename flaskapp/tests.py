@@ -28,7 +28,9 @@ class FirstTest(LiveServerTestCase):
 
     def test_runAll(self):
         self.server_is_up_and_running_test()
-        self.post_vals_works_test()
+        self.post_vals_works_with_correct_vals_test()
+        self.post_vals_fails_with_invalid_turnangle_test()
+        self.post_vals_fails_with_invalid_onoff_test()
         print 'all tests have run, shutting down'
         r = requests.post(url = self.url + 'shutdown', data = {})
 
@@ -39,7 +41,7 @@ class FirstTest(LiveServerTestCase):
         self.assertEqual(response.code, 200)
         print 'Server is up and running'
 
-    def post_vals_works_test(self):
+    def post_vals_works_with_correct_vals_test(self):
         data = {'onOff':1, 'turnAngle':41.0}
         urlPost = self.url + 'post'
         r = requests.post(url = urlPost, data = data)
@@ -47,6 +49,20 @@ class FirstTest(LiveServerTestCase):
         self.assertEqual(data['turnAngle'], retData['turnAngle'])
         self.assertEqual(data['onOff'], retData['onOff'])
         print 'Successfully returned: '+r.text
+
+    def post_vals_fails_with_invalid_turnangle_test(self):
+        data = {'onOff':1, 'turnAngle':181.0}
+        urlPost = self.url + 'post'
+        r = requests.post(url = urlPost, data = data)
+        self.assertEqual('invalid request', r.text)
+        print 'Failed as expected: '+r.text
+
+    def post_vals_fails_with_invalid_onoff_test(self):
+        data = {'onOff':2, 'turnAngle':41.0}
+        urlPost = self.url + 'post'
+        r = requests.post(url = urlPost, data = data)
+        self.assertEqual('invalid request', r.text)
+        print 'Failed as expected: '+r.text
 
 if __name__ == '__main__':
 

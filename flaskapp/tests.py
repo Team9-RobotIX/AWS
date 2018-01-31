@@ -26,15 +26,24 @@ class FirstTest(LiveServerTestCase):
         app.config['LIVESERVER_TIMEOUT'] = 10
         return app
 
+    def setUp(self):
+        print 'setup'
+
+    ###This must be first
+    def test_shutdown_text_outputted(self):
+        r = requests.post(url = self.url + 'shutdown', data = {})
+        self.assertEqual(r.text, 'Server shutting down...')
+
+    def test_shutdown_error_outputted(self):
+        with self.assertRaises(RuntimeError):
+            r = flaskapp.shutdown()
+            print 'Errored as expected: '+r.text
+            
     def test_server_is_up_and_running(self):
         print self.get_server_url()
         response = urllib2.urlopen(self.url)
         self.assertEqual(response.code, 200)
         print 'Server is up and running'
-
-        #This must be part of the first test
-        print 'all tests have run, shutting down'
-        r = requests.post(url = self.url + 'shutdown', data = {})
 
     def test_post_vals_works_with_correct_vals(self):
         data = {'onOff':1, 'turnAngle':41.0}
@@ -62,6 +71,9 @@ class FirstTest(LiveServerTestCase):
     def test_exception_handler(self):
         ret = flaskapp.exception_handler("error")
         self.assertEqual(ret, "Oh no! 'error'")
+
+    def tearDown(self):
+        print 'teardown'
 
 if __name__ == '__main__':
 

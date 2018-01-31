@@ -35,11 +35,26 @@ def post():
     else:
         return 'invalid request'
 
+#Handle shutdown
+@app.route('/shutdown', methods=['POST'])
+def shutdown():
+    shutdown_server()
+    return 'Server shutting down...'
+
+def shutdown_server():
+    func = request.environ.get('werkzeug.server.shutdown')
+    if func is None:
+        raise RuntimeError('Not running with the Werkzeug Server')
+    func()
+
 
 #Used if there is an error in the application.
 @app.errorhandler(Exception)
 def exception_handler(error):
     return "Oh no! "  + repr(error)
+
+def main():
+    app.run()
 
 
 if __name__ == '__main__':

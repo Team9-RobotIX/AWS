@@ -26,20 +26,26 @@ class FirstTest(LiveServerTestCase):
         app.config['LIVESERVER_TIMEOUT'] = 10
         return app
 
-    def test_runAll(self):
-        self.server_is_up_and_running_test()
-        self.post_vals_works_test()
-        print 'all tests have run, shutting down'
-        r = requests.post(url = self.url + 'shutdown', data = {})
+    def setUp(self):
+        print 'setup'
 
-    #Test that the server is responding
-    def server_is_up_and_running_test(self):
+    ###This must be first
+    def test_shutdown_text_outputted(self):
+        r = requests.post(url = self.url + 'shutdown', data = {})
+        self.assertEqual(r.text, 'Server shutting down...')
+
+    def test_shutdown_error_outputted(self):
+        with self.assertRaises(RuntimeError):
+            r = flaskapp.shutdown()
+            print 'Errored as expected: '+r.text
+            
+    def test_server_is_up_and_running(self):
         print self.get_server_url()
         response = urllib2.urlopen(self.url)
         self.assertEqual(response.code, 200)
         print 'Server is up and running'
 
-    def post_vals_works_test(self):
+    def test_post_vals_works_with_correct_vals(self):
         data = {'onOff':1, 'turnAngle':41.0}
         urlPost = self.url + 'post'
         r = requests.post(url = urlPost, data = data)
@@ -47,6 +53,27 @@ class FirstTest(LiveServerTestCase):
         self.assertEqual(data['turnAngle'], retData['turnAngle'])
         self.assertEqual(data['onOff'], retData['onOff'])
         print 'Successfully returned: '+r.text
+
+    def test_post_vals_fails_with_invalid_turnangle(self):
+        data = {'onOff':1, 'turnAngle':181.0}
+        urlPost = self.url + 'post'
+        r = requests.post(url = urlPost, data = data)
+        self.assertEqual('invalid request', r.text)
+        print 'Failed as expected: '+r.text
+
+    def test_post_vals_fails_with_invalid_onoff(self):
+        data = {'onOff':2, 'turnAngle':41.0}
+        urlPost = self.url + 'post'
+        r = requests.post(url = urlPost, data = data)
+        self.assertEqual('invalid request', r.text)
+        print 'Failed as expected: '+r.text
+
+    def test_exception_handler(self):
+        ret = flaskapp.exception_handler("error")
+        self.assertEqual(ret, "Oh no! 'error'")
+
+    def tearDown(self):
+        print 'teardown'
 
 if __name__ == '__main__':
 

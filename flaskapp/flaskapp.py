@@ -1,9 +1,16 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, g
 import sys, os, json
 import heapq
+import dataset
 
 app = Flask(__name__)
 db = os.path.join(sys.path[0], "store.txt")
+
+
+def get_db():
+    if not hasttr(g, 'db'):
+        g.db = dataset.connect('sqlite:///development.db')
+    return g.db
 
 
 #Reads the stored values and outputs them.

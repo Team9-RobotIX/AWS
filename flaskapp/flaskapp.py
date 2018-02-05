@@ -8,7 +8,7 @@ db = os.path.join(sys.path[0], "store.txt")
 
 
 def get_db():
-    if not hasttr(g, 'db'):
+    if not hasattr(g, 'db'):
         g.db = dataset.connect('sqlite:///development.db')
     return g.db
 

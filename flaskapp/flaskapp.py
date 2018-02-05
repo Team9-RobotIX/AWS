@@ -20,23 +20,23 @@ def queuePage():
 
     #Low priority delivery with 1 package
     pList1 = []
-    p1 = Package(1, 'BloodSample', 'A sample of blood', -5, 3, 3600)
+    p1 = Package(1, 'BloodSample', 'A sample of blood', 2, -5, 3, 3600)
     pList1.append(p1)
-    d1 = Delivery(1, pList1, 'A', 'B', 2, 'PENDING')
+    d1 = Delivery(1, pList1, 'A', 'B', 'PENDING')
 
     #Medium priority delivery with 1 package
     pList2 = []
-    p2 = Package(2, 'Shoe', 'A shoe', -5, 100, 100000)
+    p2 = Package(2, 'Shoe', 'A shoe', 3, -5, 100, 100000)
     pList2.append(p2)
-    d2 = Delivery(2, pList2, 'C', 'D', 3, 'PENDING')
+    d2 = Delivery(2, pList2, 'C', 'D', 'PENDING')
 
     #High priority delivery with 2 packages
     pList3 = []
-    p3 = Package(3, 'Heart', 'An actual human heart', -5, 5, 600)
-    p4 = Package(4, 'Barack Obama', '44th President of the United States Barack Obama', -5, 40, 600)
+    p3 = Package(3, 'Heart', 'An actual human heart', 1, -5, 5, 600)
+    p4 = Package(4, 'Barack Obama', '44th President of the United States Barack Obama', 1, -5, 40, 600)
     pList3.append(p3)
     pList3.append(p4)
-    d3 = Delivery(3, pList3, 'B', 'D', 1, 'PENDING')
+    d3 = Delivery(3, pList3, 'B', 'D', 'PENDING')
 
     #Push all deliveries onto the heap queue
     heapq.heappush(h, (d1.priority, d1.packageList))
@@ -95,23 +95,30 @@ def exception_handler(error):
 
 #Describes the item added to the delivery
 class Package:
-    def __init__(self, id, name, description, minTemp, maxTemp, timeLimit):
+    def __init__(self, id, name, description, priority, minTemp, maxTemp, timeLimit):
         self.id = id
         self.name = name
         self.description = description
+        self.priority = priority
         self.minTemp = minTemp
         self.maxTemp = maxTemp
         self.timeLimit = timeLimit
+        if(minTemp > maxTemp):
+            raise ValueError("Invalid temperatures")
+        if(timeLimit < 0):
+            raise ValueError("Invalid time limit")
 
 #A delivery contains packages
 class Delivery:
-    def __init__(self, id, packageList, fromLoc, toLoc, priority, state):
+    def __init__(self, id, packageList, fromLoc, toLoc, state):
         self.id = id
         self.packageList = packageList
         self.fromLoc = fromLoc
         self.toLoc = toLoc
-        self.priority = priority #Could be max of package priorities?
+        self.priority = min([x.priority for x in packageList]) #lowest number highest priority
         self.state = state
+        if(len(packageList) < 1):
+            raise ValueError("No packages")
 
 
 def main():
@@ -119,4 +126,4 @@ def main():
 
 
 if __name__ == '__main__':
-  app.run()
+    app.run()

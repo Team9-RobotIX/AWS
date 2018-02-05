@@ -38,7 +38,7 @@ class FirstTest(LiveServerTestCase):
         with self.assertRaises(RuntimeError):
             r = flaskapp.shutdown()
             print 'Errored as expected: '+r.text
-            
+
     def test_server_is_up_and_running(self):
         print self.get_server_url()
         response = urllib2.urlopen(self.url)
@@ -71,6 +71,40 @@ class FirstTest(LiveServerTestCase):
     def test_exception_handler(self):
         ret = flaskapp.exception_handler("error")
         self.assertEqual(ret, "Oh no! 'error'")
+
+
+    #Object tests
+    def test_pacakge_init(self):
+
+        #Package can be initialised without errors
+        p1 = flaskapp.Package(1, 'package', 'desc', 3, 1, 5, 3600)
+
+        #Package wuth minTemp higher than maxTemp raises error
+        with self.assertRaises(ValueError):
+            p2 = flaskapp.Package(2, 'package', 'desc', 3, 100, 0, 3600)
+
+        #Package with negative time raises error
+        with self.assertRaises(ValueError):
+            p3 = flaskapp.Package(3, 'package', 'desc', 3, 1, 5, -1)
+
+    def test_delivery_init(self):
+        p1 = flaskapp.Package(1, 'package', 'desc', 3, 1, 5, 3600)
+        pList = [p1]
+
+        #Delivery can be initialised without errors
+        d1 = flaskapp.Delivery(1, pList, 'A', 'B', 'PENDING')
+
+        #Delivery with no packages raises an error
+        with self.assertRaises(ValueError):
+            d2 = flaskapp.Delivery(2, [], 'A', 'B', 'PENDING')
+
+        p2 = flaskapp.Package(2, 'package', 'desc', 1, 1, 5, 3600)
+        pList.append(p2)
+        d3 = flaskapp.Delivery(3, pList, 'A', 'B', 'PENDING')
+
+        #p1 has priority 3, p2 has priority 1 so delivery priority is 1.
+        self.assertEqual(d3.priority, 1)
+
 
     def tearDown(self):
         print 'teardown'

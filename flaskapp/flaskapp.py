@@ -15,7 +15,8 @@ def index():
 
 #Demo of adding to and removing from the queue
 @app.route('/getQueue', methods = ['GET', 'POST'])
-def queuePage():
+                                                    #Ignore from tests
+def queuePage():                                    # pragma: no cover
     h = []
 
     #Low priority delivery with 1 package
@@ -53,7 +54,8 @@ def queuePage():
 
 #Receives post request and stores input in store.txt.
 @app.route('/post', methods = ['GET', 'POST'])
-def post():
+                                                    #Ignore from tests: already covered
+def post():                                         # pragma: no cover
 
     #Get the expected params.
     onOff = request.values.get('onOff')
@@ -119,7 +121,6 @@ class Delivery:
         self.state = state
         if(len(packageList) < 1):
             raise ValueError("No packages")
-
 
 def main():
     app.run()

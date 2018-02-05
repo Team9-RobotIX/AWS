@@ -3,5 +3,7 @@
 
 flaskapp/__pycache__
 flaskapp/flaskapp.wsgi
+flaskapp/store.txt
+.coverage
 
 *.pyc

@@ -2,9 +2,9 @@ from flask import Flask, request, jsonify, g
 import sys, os, json
 import heapq
 import dataset
+import shelve
 
 app = Flask(__name__)
-db = os.path.join(sys.path[0], "store.txt")
 
 
 def get_db():
@@ -13,11 +13,28 @@ def get_db():
     return g.db
 
 
+def get_cache():
+    """
+    The cache is meant to be a volatile data store backed by shelve.
+    It can store arbitrary objects.
+    """
+    if not hasattr(g, 'cache'):
+        g.cache = shelve.open('development_cache')
+    return g.cache
+
+
+@app.teardown_appcontext
+def close_cache(error):
+    if hasattr(g, 'cache'):
+        g.cache.close()
+
+
 #Reads the stored values and outputs them.
 @app.route('/', methods = ['GET', 'POST'])
 def index():
-    fh = open(db, "r")
-    return fh.read()
+    onOff = get_cache()['onOff']
+    turnAngle = get_cache()['turnAngle']
+    return jsonify({'onOff': onOff, 'turnAngle': turnAngle})
 
 
 #Demo of adding to and removing from the queue
@@ -70,16 +87,9 @@ def post():                                         # pragma: no cover
 
     #Check params are in expected ranges.
     if( (int(onOff) in [0,1]) and (-180 <= float(turnAngle) <= 180) ):
-
-        #Open store.txt in write mode.
-        fh = open(db, "w")
-
-        #Store params as json and write to store.txt.
-        jsonDict = json.dumps({"onOff":int(onOff), "turnAngle":float(turnAngle)})
-        fh.write(jsonDict)
-        fh.close()
-
-        return str (jsonDict)
+        get_cache()['onOff'] = onOff
+        get_cache()['turnAngle'] = turnAngle
+        return jsonify({'onOff': onOff, 'turnAngle': turnAngle})
     else:
         return 'invalid request'
 
@@ -116,6 +126,7 @@ class Delivery:
         self.state = state
         if(len(packageList) < 1):
             raise ValueError("No packages")
+
 
 def main():
     app.run()

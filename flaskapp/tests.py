@@ -7,22 +7,14 @@ import json
 import requests
 import flaskapp
 
-from multiprocessing import Process
-
 import time
 
 class FirstTest(LiveServerTestCase):
-
-    #Local url
-    url = 'http://127.0.0.1:5000/'
-
     #Initialise testing app
     def create_app(self):
-        app = Flask(__name__)
-        #app.config['TESTING'] = True
-        # Default port is 5000
+        app = flaskapp.app
+        app.config['TESTING'] = True
         app.config['LIVESERVER_PORT'] = 8943
-        # Default timeout is 5 seconds
         app.config['LIVESERVER_TIMEOUT'] = 10
         return app
 
@@ -30,25 +22,16 @@ class FirstTest(LiveServerTestCase):
         print 'setup'
 
     ###This must be first
-    def test_shutdown_text_outputted(self):
-        r = requests.post(url = self.url + 'shutdown', data = {})
-        self.assertEqual(r.text, 'Server shutting down...')
-
-    def test_shutdown_error_outputted(self):
-        with self.assertRaises(RuntimeError):
-            r = flaskapp.shutdown()
-            print 'Errored as expected: '+r.text
-
     def test_server_is_up_and_running(self):
-        print self.get_server_url()
-        response = urllib2.urlopen(self.url)
+        url = self.get_server_url() + '/'
+        response = urllib2.urlopen(self.get_server_url())
         self.assertEqual(response.code, 200)
         print 'Server is up and running'
 
     def test_post_vals_works_with_correct_vals(self):
         data = {'onOff':1, 'turnAngle':41.0}
-        urlPost = self.url + 'post'
-        r = requests.post(url = urlPost, data = data)
+        url = self.get_server_url() + '/post'
+        r = requests.post(url = url, data = data)
         retData = eval(str(r.text))
         self.assertEqual(data['turnAngle'], retData['turnAngle'])
         self.assertEqual(data['onOff'], retData['onOff'])
@@ -56,15 +39,15 @@ class FirstTest(LiveServerTestCase):
 
     def test_post_vals_fails_with_invalid_turnangle(self):
         data = {'onOff':1, 'turnAngle':181.0}
-        urlPost = self.url + 'post'
-        r = requests.post(url = urlPost, data = data)
+        url = self.get_server_url() + '/post'
+        r = requests.post(url = url, data = data)
         self.assertEqual('invalid request', r.text)
         print 'Failed as expected: '+r.text
 
     def test_post_vals_fails_with_invalid_onoff(self):
         data = {'onOff':2, 'turnAngle':41.0}
-        urlPost = self.url + 'post'
-        r = requests.post(url = urlPost, data = data)
+        url = self.get_server_url() + '/post'
+        r = requests.post(url = url, data = data)
         self.assertEqual('invalid request', r.text)
         print 'Failed as expected: '+r.text
 
@@ -110,7 +93,4 @@ class FirstTest(LiveServerTestCase):
         print 'teardown'
 
 if __name__ == '__main__':
-
-    server = Process(target=flaskapp.main)
-    server.start()
     unittest.main()

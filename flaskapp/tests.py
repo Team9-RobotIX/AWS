@@ -7,8 +7,6 @@ import json
 import requests
 import flaskapp
 
-from multiprocessing import Process
-
 import time
 
 class FirstTest(LiveServerTestCase):
@@ -24,16 +22,6 @@ class FirstTest(LiveServerTestCase):
         print 'setup'
 
     ###This must be first
-    def test_shutdown_text_outputted(self):
-        url = self.get_server_url() + '/shutdown'
-        r = requests.post(url = url, data = {})
-        self.assertEqual(r.text, 'Server shutting down...')
-
-    def test_shutdown_error_outputted(self):
-        with self.assertRaises(RuntimeError):
-            r = flaskapp.shutdown()
-            print 'Errored as expected: '+r.text
-
     def test_server_is_up_and_running(self):
         url = self.get_server_url() + '/'
         response = urllib2.urlopen(self.get_server_url())

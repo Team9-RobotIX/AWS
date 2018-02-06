@@ -30,7 +30,17 @@ flask run
 
 ## Running the tests
 
-TODO
+To run the tests, execute the following command on your terminal:
+
+```
+coverage run --source flaskapp flaskapp/tests.py
+```
+
+If you are using a virtual env, you can use this command:
+
+```
+coverage run --source flaskapp --omit '*/venv/*' flaskapp/tests.py
+```
 
 ## Deployment
 

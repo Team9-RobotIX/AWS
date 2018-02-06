@@ -82,8 +82,8 @@ def queuePage():                                    # pragma: no cover
 def post():                                         # pragma: no cover
 
     #Get the expected params.
-    onOff = request.values.get('onOff')
-    turnAngle = request.values.get('turnAngle')
+    onOff = int(request.values.get('onOff'))
+    turnAngle = float(request.values.get('turnAngle'))
 
     #Check params are in expected ranges.
     if( (int(onOff) in [0,1]) and (-180 <= float(turnAngle) <= 180) ):

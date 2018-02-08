@@ -55,6 +55,24 @@ class FirstTest(LiveServerTestCase):
         ret = flaskapp.exception_handler("error")
         self.assertEqual(ret, "Oh no! 'error'")
 
+    def test_post_lock_works(self):
+        data = {'lock':1}
+        urlPost = self.get_server_url() + '/lock'
+        r = requests.post(url = urlPost, data = data)
+        retData = eval(str(r.text))
+        self.assertEqual(data['lock'], 1)
+        print 'Successfully returned: '+r.text
+
+    def test_get_lock_flips_value(self):
+        data = {'lock':1}
+        url = self.get_server_url() + '/lock'
+        r = requests.post(url = url, data = data)
+        valFirst = 1
+        valExpectedNext = str(1 - int(valFirst)) # (1-0 = 1, 1-1=0)
+        r2 = requests.get(url = url)
+        self.assertEqual(str(r2.text), valExpectedNext)
+        print 'Successfully returned: '+r2.text
+
 
     #Object tests
     def test_pacakge_init(self):

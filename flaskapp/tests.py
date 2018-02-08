@@ -14,7 +14,7 @@ class FirstTest(LiveServerTestCase):
     def create_app(self):
         app = flaskapp.app
         app.config['TESTING'] = True
-        app.config['LIVESERVER_PORT'] = 8943
+        app.config['LIVESERVER_PORT'] = 0
         app.config['LIVESERVER_TIMEOUT'] = 10
         return app
 

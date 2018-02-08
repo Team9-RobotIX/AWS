@@ -25,6 +25,7 @@ One you've setup your development environment, you can start the server by runni
 
 ```
 export FLASK_APP=flaskapp/flaskapp.py
+export SERVER_SETTINGS=../config.example.cfg
 flask run
 ```
 

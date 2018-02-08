@@ -94,6 +94,26 @@ def post():                                         # pragma: no cover
         return 'invalid request'
 
 
+@app.route('/lock', methods = ['GET', 'POST'])
+def lock():
+    #If 'POST' then write the new value
+    if(request.values):
+        lock = request.values.get('lock')
+
+        #Check value in correct range
+        if(lock in ['0','1']):
+            get_cache()['lock'] = lock
+        else:
+            return 'invalid value'
+
+    #Otherwise if 'GET' flip the value:
+    else:
+        get_cache()['lock'] = str(1 - int(get_cache()['lock']))
+
+    #Return the value
+    return get_cache()['lock']
+
+
 #Used if there is an error in the application.
 @app.errorhandler(Exception)
 def exception_handler(error):

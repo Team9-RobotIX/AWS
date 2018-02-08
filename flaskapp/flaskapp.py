@@ -10,7 +10,7 @@ app.config.from_envvar('SERVER_SETTINGS')
 
 def get_db():
     if not hasattr(g, 'db'):
-        g.db = dataset.connect('sqlite:///development.db')
+        g.db = dataset.connect(app.config['DATASET_DATABASE_URI'])
     return g.db
 
 

@@ -2,13 +2,11 @@ language: python
 python:
   - "2.7"
 
-env:
-  - SERVER_SETTINGS=../config.example.cfg
-
 # command to install dependencies
 install:
   - pip install -r requirements.txt
   - pip install coveralls
+  - cp flaskapp/config.example.py flaskapp/config.py
 
 # command to run tests
 script: coverage run --source flaskapp --omit '*/venv/*' flaskapp/tests.py

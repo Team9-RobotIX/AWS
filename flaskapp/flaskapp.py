@@ -5,7 +5,7 @@ import dataset
 import shelve
 
 app = Flask(__name__)
-app.config.from_envvar('SERVER_SETTINGS')
+app.config.from_object('config.Config')
 
 
 def get_db():

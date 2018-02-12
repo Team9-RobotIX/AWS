@@ -133,7 +133,7 @@ def lock():
 #Used if there is an error in the application.
 @app.errorhandler(Exception)
 def exception_handler(error):
-    return "Oh no! "  + repr(error)
+    return "Oh no! "  + repr(error), 400
 
 
 #Describes the item added to the delivery

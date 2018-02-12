@@ -29,10 +29,15 @@ def close_cache(error):
     if hasattr(g, 'cache'):
         g.cache.close()
 
-
 #Reads the stored values and outputs them.
 @app.route('/', methods = ['GET', 'POST'])
 def index():
+    if 'onOff' not in get_cache():
+        get_cache()['onOff'] = 0
+
+    if 'turnAngle' not in get_cache():
+        get_cache()['turnAngle'] = 0.0
+
     onOff = get_cache()['onOff']
     turnAngle = get_cache()['turnAngle']
     return jsonify({'onOff': onOff, 'turnAngle': turnAngle})
@@ -112,6 +117,9 @@ def post():                                         # pragma: no cover
 
 @app.route('/lock', methods = ['GET', 'POST'])
 def lock():
+    if 'lock' not in get_cache():
+        get_cache()['lock'] = 0
+
     #If 'POST' then write the new value
     if(request.values):
         lock = request.values.get('lock')

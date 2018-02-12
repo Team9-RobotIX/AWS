@@ -37,6 +37,21 @@ def index():
     return jsonify({'onOff': onOff, 'turnAngle': turnAngle})
 
 
+app.route('/instructionsPost', methods = ['GET', 'POST'])
+def instructions():
+    instruction = int(request.values.get('instruction'))
+    value = float(request.values.get('value'))
+    get_cache()['instruction'] = instruction
+    get_cache()['instructionValue'] = value
+    return jsonify({'instruction': instruction, 'value': value})
+
+app.route('/getInstruction', methods = ['GET', 'POST'])
+def getInstruction():
+    instruction = get_cache()['instruction']
+    value = get_cache()['instructionValue']
+    return "instruction : "+str(instruction)+" value: "+str(value)
+
+
 #Demo of adding to and removing from the queue
 @app.route('/getQueue', methods = ['GET', 'POST'])
                                                     #Ignore from tests

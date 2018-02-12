@@ -37,7 +37,7 @@ def index():
     return jsonify({'onOff': onOff, 'turnAngle': turnAngle})
 
 
-app.route('/instructionsPost', methods = ['GET', 'POST'])
+@app.route('/instructionsPost', methods = ['GET', 'POST'])
 def instructions():
     instruction = request.values.get('instruction')
     value = request.values.get('value')
@@ -45,7 +45,7 @@ def instructions():
     get_cache()['instructionValue'] = value
     return jsonify({'instruction': instruction, 'value': value})
 
-app.route('/getInstruction', methods = ['GET', 'POST'])
+@app.route('/getInstruction', methods = ['GET', 'POST'])
 def getInstruction():
     instruction = get_cache()['instruction']
     value = get_cache()['instructionValue']

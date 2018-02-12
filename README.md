@@ -20,6 +20,7 @@ to setup the development environment:
 
 1. Clone this repository
 2. Install dependencies using `pip install -r requirements.txt`
+3. Copy the configuration file using `cp flaskapp/config.example.py flaskapp/config.py`
 
 One you've setup your development environment, you can start the server by running:
 

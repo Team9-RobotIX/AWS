@@ -10,3 +10,5 @@ flaskapp/store.txt
 
 # Databases
 *.db
+
+flaskapp/config.py

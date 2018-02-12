@@ -5,11 +5,12 @@ import dataset
 import shelve
 
 app = Flask(__name__)
+app.config.from_object('config.Config')
 
 
 def get_db():
     if not hasattr(g, 'db'):
-        g.db = dataset.connect('sqlite:///development.db')
+        g.db = dataset.connect(app.config['DATASET_DATABASE_URI'])
     return g.db
 
 
@@ -19,7 +20,7 @@ def get_cache():
     It can store arbitrary objects.
     """
     if not hasattr(g, 'cache'):
-        g.cache = shelve.open('development_cache')
+        g.cache = shelve.open(app.config['SHELVE_FILENAME'])
     return g.cache
 
 

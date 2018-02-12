@@ -39,8 +39,8 @@ def index():
 
 app.route('/instructionsPost', methods = ['GET', 'POST'])
 def instructions():
-    instruction = int(request.values.get('instruction'))
-    value = float(request.values.get('value'))
+    instruction = request.values.get('instruction')
+    value = request.values.get('value')
     get_cache()['instruction'] = instruction
     get_cache()['instructionValue'] = value
     return jsonify({'instruction': instruction, 'value': value})

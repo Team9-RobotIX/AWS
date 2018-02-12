@@ -24,8 +24,8 @@ class FirstTest(LiveServerTestCase):
     ###This must be first
     def test_server_is_up_and_running(self):
         url = self.get_server_url() + '/'
-        response = urllib2.urlopen(self.get_server_url())
-        self.assertEqual(response.code, 200)
+        r = requests.get(url = url)
+        self.assertTrue(r.status_code == requests.codes.ok)
         print 'Server is up and running'
 
     def test_post_vals_works_with_correct_vals(self):
@@ -53,7 +53,7 @@ class FirstTest(LiveServerTestCase):
 
     def test_exception_handler(self):
         ret = flaskapp.exception_handler("error")
-        self.assertEqual(ret, "Oh no! 'error'")
+        self.assertEqual(ret, ("Oh no! 'error'", 400))
 
     def test_post_lock_works(self):
         data = {'lock':1}
@@ -72,6 +72,22 @@ class FirstTest(LiveServerTestCase):
         r2 = requests.get(url = url)
         self.assertEqual(str(r2.text), valExpectedNext)
         print 'Successfully returned: '+r2.text
+
+    def test_get_lock_default_value(self):
+        url = self.get_server_url() + '/lock'
+        r = requests.post(url = url)
+        self.assertTrue(r.status_code == requests.codes.ok)
+        retData = eval(str(r.text))
+        self.assertEquals(data['lock'], 0)
+
+    def test_get_default_value(self):
+        url = self.get_server_url() + '/'
+        r = requests.post(url = url)
+        self.assertTrue(r.status_code == requests.codes.ok)
+        retData = eval(str(r.text))
+        self.assertEquals(data['onOff'], 0)
+        self.assertEquals(data['turnAngle'], 0.0)
+
 
 
     #Object tests

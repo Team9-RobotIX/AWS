@@ -25,7 +25,7 @@ class FirstTest(LiveServerTestCase):
     def test_server_is_up_and_running(self):
         url = self.get_server_url() + '/'
         r = requests.get(url = url)
-        self.assertTrue(r.status_code == requests.codes.ok)
+        self.assertEquals(r.status_code, 200)
         print 'Server is up and running'
 
     def test_post_vals_works_with_correct_vals(self):
@@ -76,17 +76,17 @@ class FirstTest(LiveServerTestCase):
     def test_get_lock_default_value(self):
         url = self.get_server_url() + '/lock'
         r = requests.post(url = url)
-        self.assertTrue(r.status_code == requests.codes.ok)
-        retData = eval(str(r.text))
-        self.assertEquals(data['lock'], 0)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.text, '1')
 
     def test_get_default_value(self):
         url = self.get_server_url() + '/'
-        r = requests.post(url = url)
-        self.assertTrue(r.status_code == requests.codes.ok)
+        r = requests.get(url = url)
+        print r.text
+        self.assertEquals(r.status_code, 200)
         retData = eval(str(r.text))
-        self.assertEquals(data['onOff'], 0)
-        self.assertEquals(data['turnAngle'], 0.0)
+        self.assertEquals(retData['onOff'], 0)
+        self.assertEquals(retData['turnAngle'], 0.0)
 
 
 

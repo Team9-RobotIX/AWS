@@ -43,6 +43,14 @@ def index():
     turnAngle = get_cache()['turnAngle']
     return jsonify({'onOff': onOff, 'turnAngle': turnAngle})
 
+@app.route('/login', methods = ['GET', 'POST'])
+def login():
+    valid = 1
+    if(valid):
+        return str(request)+" token: TOKEN_PLACEHOLDER"
+    else:
+        return 'INVALID'
+
 
 @app.route('/instructionsPost', methods = ['GET', 'POST'])
 def instructions():

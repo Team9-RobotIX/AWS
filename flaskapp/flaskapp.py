@@ -1,11 +1,13 @@
-from flask import Flask, request, jsonify, g
+from flask import Flask, abort, request, jsonify, g
 import sys, os, json
 import heapq
 import dataset
 import shelve
+from flask_bcrypt import Bcrypt
 
 app = Flask(__name__)
 app.config.from_object('config.Config')
+bcrypt = Bcrypt(app)
 
 
 def get_db():
@@ -43,6 +45,38 @@ def index():
     turnAngle = get_cache()['turnAngle']
     return jsonify({'onOff': onOff, 'turnAngle': turnAngle})
 
+
+@app.route('/login', methods = ['GET', 'POST'])
+def login():
+    username = request.values.get('username')
+    password = request.values.get('password')
+    
+    usersTable = get_db()['users']
+    user = usersTable.find_one(username=username)
+    hashedPassword = bcrypt.generate_password_hash(password)
+  
+    if(user):
+         if(bcrypt.check_password_hash(user['password'], password)):
+             return str(username)+" "+str(password)+" token: TOKEN_PLACEHOLDER"
+    
+    abort(401)
+
+
+@app.route('/register', methods = ['GET', 'POST'])
+def register():
+    username = request.values.get('username')
+    password = request.values.get('password')
+    hashedPassword = bcrypt.generate_password_hash(password)
+
+    usersTable = get_db()['users']
+    #[debug] clears table
+    #usersTable.delete()
+    if(username and password and len(username) > 0 and len(password) > 0): 
+        usersTable.insert(dict(username=username, password=hashedPassword))
+        return str(username)+" added"
+    else:
+        return "invalid username/password"
+    
 
 @app.route('/instructionsPost', methods = ['GET', 'POST'])
 def instructions():
@@ -143,6 +177,11 @@ def lock():
 @app.errorhandler(Exception)
 def exception_handler(error):
     return "Oh no! "  + repr(error), 400
+
+
+@app.errorhandler(401)
+def custom_401(error):
+    return 'Access denied', 401
 
 
 #Describes the item added to the delivery

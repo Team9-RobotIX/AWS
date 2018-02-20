@@ -87,6 +87,82 @@ class RobotGroupTest(TestCase):
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
+    # Batch instructions route
+    def test_get_instruction_batch(self):
+        data = [{'type': 'MOVE', 'value': 100},
+                {'type': 'TURN', 'value': 90},
+                {'type': 'TURN', 'value': -90}]
+        data_correction = {'angle': 10.3}
+        self.client.delete('/instructions')
+        self.client.delete('/correction')
+        self.client.post('/instructions', data = json.dumps(data))
+        self.client.post('/correction', data = json.dumps(data_correction))
+
+        route = '/instructions/batch'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, {'instructions': data,
+                                   'correction': data_correction})
+
+    def test_get_instruction_batch_no_correction(self):
+        data = [{'type': 'MOVE', 'value': 100},
+                {'type': 'TURN', 'value': 90},
+                {'type': 'TURN', 'value': -90}]
+        self.client.delete('/instructions')
+        self.client.delete('/correction')
+        self.client.post('/instructions', data = json.dumps(data))
+
+        route = '/instructions/batch'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, {'instructions': data})
+
+    def test_get_instruction_batch_limit(self):
+        data = [{'type': 'MOVE', 'value': 100},
+                {'type': 'TURN', 'value': 90},
+                {'type': 'TURN', 'value': -90}]
+        data_correction = {'angle': 10.3}
+        self.client.delete('/instructions')
+        self.client.delete('/correction')
+        self.client.post('/instructions', data = json.dumps(data))
+        self.client.post('/correction', data = json.dumps(data_correction))
+
+        route = '/instructions/batch?limit=2'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, {'instructions': data[0:2],
+                                   'correction': data_correction})
+
+        route = '/instructions/batch?limit=3'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, {'instructions': data,
+                                   'correction': data_correction})
+
+        route = '/instructions/batch?limit=10'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, {'instructions': data,
+                                   'correction': data_correction})
+
+    def test_get_instruction_batch_limit_invalid(self):
+        data = [{'type': 'MOVE', 'value': 100},
+                {'type': 'TURN', 'value': 90},
+                {'type': 'TURN', 'value': -90}]
+        data_correction = {'angle': 10.3}
+        self.client.delete('/instructions')
+        self.client.delete('/correction')
+        self.client.post('/instructions', data = json.dumps(data))
+        self.client.post('/correction', data = json.dumps(data_correction))
+
+        route = '/instructions/batch?limit=0'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 400)
+
+        route = '/instructions/batch?limit=-10'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 400)
+
     # Instruction routes
     def test_get_instruction(self):
         data = [{'type': 'MOVE', 'value': 100},

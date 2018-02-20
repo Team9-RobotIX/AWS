@@ -49,29 +49,6 @@ class FirstTest(LiveServerTestCase):
         ret = flaskapp.exception_handler("error")
         self.assertEqual(ret, ("Oh no! 'error'", 400))
 
-    def test_post_lock_works(self):
-        data = {'lock': 1}
-        urlPost = self.get_server_url() + '/lock'
-        r = requests.post(url = urlPost, data = data)
-        self.assertEqual(data['lock'], 1)
-        print('Successfully returned: ' + r.text)
-
-    def test_get_lock_flips_value(self):
-        data = {'lock': 1}
-        url = self.get_server_url() + '/lock'
-        requests.post(url = url, data = data)
-        valFirst = 1
-        valExpectedNext = str(1 - int(valFirst))  # (1-0 = 1, 1-1=0)
-        r2 = requests.get(url = url)
-        self.assertEqual(str(r2.text), valExpectedNext)
-        print('Successfully returned: ' + r2.text)
-
-    def test_get_lock_default_value(self):
-        url = self.get_server_url() + '/lock'
-        r = requests.post(url = url)
-        self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.text, '1')
-
     def test_get_default_value(self):
         url = self.get_server_url() + '/'
         r = requests.get(url = url)
@@ -165,6 +142,43 @@ class FirstTest(LiveServerTestCase):
         data = [{'type': 'TURN', 'value': 190.0}]
         r = requests.post(url = url, json = data)
         self.assertEquals(r.status_code, 400)
+
+    # Lock routes
+    def test_post_lock_set_true(self):
+        data = {'locked': True}
+        url = self.get_server_url() + '/lock'
+        r = requests.post(url = url, json = data)
+        self.assertEquals(r.status_code, 200)
+        retData = simplejson.loads(r.text)
+        self.assertEquals(retData, data)
+
+    def test_post_lock_set_false(self):
+        data = {'locked': True}
+        url = self.get_server_url() + '/lock'
+        r = requests.post(url = url, json = data)
+        self.assertEquals(r.status_code, 200)
+        retData = simplejson.loads(r.text)
+        self.assertEquals(retData, data)
+
+    def test_get_lock_false(self):
+        url = self.get_server_url() + '/lock'
+        data = {'locked': False}
+        requests.post(url = url, json = data)
+
+        r = requests.get(url = url)
+        self.assertEquals(r.status_code, 200)
+        retData = simplejson.loads(r.text)
+        self.assertEquals(retData, data)
+
+    def test_get_lock_true(self):
+        url = self.get_server_url() + '/lock'
+        data = {'locked': True}
+        requests.post(url = url, json = data)
+
+        r = requests.get(url = url)
+        self.assertEquals(r.status_code, 200)
+        retData = simplejson.loads(r.text)
+        self.assertEquals(retData, data)
 
     # Object tests
     def test_pacakge_init(self):

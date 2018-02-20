@@ -151,29 +151,6 @@ def post():                                         # pragma: no cover
         return 'invalid request'
 
 
-@app.route('/lock', methods = ['GET', 'POST'])
-def lock():
-    if 'lock' not in get_cache():
-        get_cache()['lock'] = 0
-
-    # If 'POST' then write the new value
-    if(request.values):
-        lock = request.values.get('lock')
-
-        # Check value in correct range
-        if(lock in ['0', '1']):
-            get_cache()['lock'] = lock
-        else:
-            return 'invalid value'
-
-    # Otherwise if 'GET' flip the value:
-    else:
-        get_cache()['lock'] = str(1 - int(get_cache()['lock']))
-
-    # Return the value
-    return get_cache()['lock']
-
-
 #                                         #
 #              ROBOT ROUTES               #
 #                                         #
@@ -211,6 +188,29 @@ def instructions_delete():
     return ''
 
 
+@app.route('/lock', methods = ['GET'])
+def lock_get():
+    if 'locked' not in get_cache():
+        get_cache()['locked'] = False
+
+    return jsonify({'locked': get_cache()['locked']})
+
+
+@app.route('/lock', methods = ['POST'])
+def lock_post():
+    data = request.get_json(force=True)
+
+    print(data)
+    if 'locked' not in data:
+        return bad_request("Must supply a state for the lock.")
+    elif not isinstance(data['locked'], bool):
+        return bad_request("Invalid lock state supplied.")
+
+    get_cache()['locked'] = data['locked']
+
+    return jsonify({'locked': get_cache()['locked']})
+
+
 # Used if there is an error in the application.
 def bad_request(friendly):
     error_code = 400
@@ -222,7 +222,7 @@ def bad_request(friendly):
         'friendly':  friendly
     }
 
-    return data, 400
+    return jsonify(data), 400
 
 
 @app.errorhandler(Exception)

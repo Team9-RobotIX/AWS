@@ -2,11 +2,14 @@ from flask import Flask, abort, request, jsonify, g
 import heapq
 import dataset
 import shelve
+import copy
 from flask_bcrypt import Bcrypt
-from classes import Package, Delivery
+from classes import Package, Delivery, Instruction
+from encoder import CustomJSONEncoder
 
 app = Flask(__name__)
 app.config.from_object('config.Config')
+app.json_encoder = CustomJSONEncoder
 bcrypt = Bcrypt(app)
 
 
@@ -22,8 +25,7 @@ def get_cache():
     It can store arbitrary objects.
     """
     if not hasattr(g, 'cache'):
-        g.cache = shelve.open(app.config['SHELVE_FILENAME'], protocol=2,
-                              flag='n')
+        g.cache = shelve.open(app.config['SHELVE_FILENAME'], protocol=2)
     return g.cache
 
 
@@ -172,7 +174,57 @@ def lock():
     return get_cache()['lock']
 
 
+#                                         #
+#              ROBOT ROUTES               #
+#                                         #
+
+# Instructions routes
+@app.route('/instructions', methods = ['GET'])
+def instructions_get():
+    if 'instructions' not in get_cache():
+        get_cache()['instructions'] = []
+
+    return jsonify(get_cache()['instructions'])
+
+
+@app.route('/instructions', methods = ['POST'])
+def instructions_post():
+    if 'instructions' not in get_cache():
+        get_cache()['instructions'] = []
+
+    data = request.get_json(force=True)
+
+    new = copy.deepcopy(get_cache()['instructions'])
+    if(isinstance(data, list)):  # Multiple instructions to be added
+        for i in data:
+            new.append(Instruction.from_dict(i))
+    else:                        # Single instruction to be added
+        new.append(Instruction.from_dict(data))
+
+    get_cache()['instructions'] = new
+    return jsonify(get_cache()['instructions'])
+
+
+@app.route('/instructions', methods = ['DELETE'])
+def instructions_delete():
+    get_cache()['instructions'] = []
+    return ''
+
+
 # Used if there is an error in the application.
+def bad_request(friendly):
+    error_code = 400
+    error = 'Bad request'
+
+    data = {
+        'code': error_code,
+        'error': error,
+        'friendly':  friendly
+    }
+
+    return data, 400
+
+
 @app.errorhandler(Exception)
 def exception_handler(error):
     return "Oh no! "  + repr(error), 400

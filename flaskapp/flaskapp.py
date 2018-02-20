@@ -142,6 +142,30 @@ def instructions_delete():
     return ''
 
 
+# Instruction routes
+@app.route('/instruction/<int:index>', methods = ['GET'])
+def instruction_get(index):
+    if 'instructions' not in get_cache():
+        return file_not_found("This instruction does not exist")
+    elif index >= len(get_cache()['instructions']) or index < 0:
+        return file_not_found("This instruction does not exist")
+
+    return jsonify(get_cache()['instructions'][index])
+
+
+@app.route('/instruction/<int:index>', methods = ['DELETE'])
+def instruction_delete(index):
+    if 'instructions' not in get_cache():
+        return file_not_found("This instruction does not exist")
+    elif index >= len(get_cache()['instructions']) or index < 0:
+        return file_not_found("This instruction does not exist")
+
+    get_cache()['instructions'] = (get_cache()['instructions'][:index] +
+                                   get_cache()['instructions'][index + 1:])
+
+    return ''
+
+
 # Correction routes
 @app.route('/correction', methods = ['GET'])
 def correction_get():

@@ -36,19 +36,6 @@ def close_cache(error):
 
 
 # Reads the stored values and outputs them.
-@app.route('/', methods = ['GET', 'POST'])
-def index():
-    if 'onOff' not in get_cache():
-        get_cache()['onOff'] = 0
-
-    if 'turnAngle' not in get_cache():
-        get_cache()['turnAngle'] = 0.0
-
-    onOff = get_cache()['onOff']
-    turnAngle = get_cache()['turnAngle']
-    return jsonify({'onOff': onOff, 'turnAngle': turnAngle})
-
-
 @app.route('/login', methods = ['GET', 'POST'])
 def login():
     username = request.values.get('username')
@@ -116,23 +103,6 @@ def queuePage():                                    # pragma: no cover
 
     # Return the names of every package in the delivery
     return 'Queue: ' + str([x.name for x in d])
-
-
-# Receives post request and stores input in store.txt.
-@app.route('/post', methods = ['GET', 'POST'])
-def post():                                         # pragma: no cover
-
-    # Get the expected params.
-    onOff = int(request.values.get('onOff'))
-    turnAngle = float(request.values.get('turnAngle'))
-
-    # Check params are in expected ranges.
-    if( (int(onOff) in [0, 1]) and (-180 <= float(turnAngle) <= 180) ):
-        get_cache()['onOff'] = onOff
-        get_cache()['turnAngle'] = turnAngle
-        return jsonify({'onOff': onOff, 'turnAngle': turnAngle})
-    else:
-        return 'invalid request'
 
 
 #                                         #

@@ -1,64 +1,7 @@
-from flask_testing import TestCase, LiveServerTestCase
+from flask_testing import TestCase
 import json
 import unittest
-import requests
 import flaskapp
-
-
-class FirstTest(LiveServerTestCase):
-    def create_app(self):
-        app = flaskapp.app
-        app.config['TESTING'] = True
-        app.config['LIVESERVER_PORT'] = 0
-        app.config['LIVESERVER_TIMEOUT'] = 10
-        return app
-
-    def test_server_is_up_and_running(self):
-        route = '/'
-        url = self.get_server_url() + route
-        r = requests.get(url = url)
-        self.assertEquals(r.status_code, 200)
-        print('Server is up and running')
-
-    def test_post_vals_works_with_correct_vals(self):
-        data = {'onOff': 1, 'turnAngle': 41.0}
-        route = '/post'
-        url = self.get_server_url() + route
-        r = requests.post(url = url, data = data)
-        retData = eval(str(r.text))
-        self.assertEqual(data['turnAngle'], retData['turnAngle'])
-        self.assertEqual(data['onOff'], retData['onOff'])
-        print('Successfully returned: ' + r.text)
-
-    def test_post_vals_fails_with_invalid_turnangle(self):
-        data = {'onOff': 1, 'turnAngle': 181.0}
-        route = '/post'
-        url = self.get_server_url() + route
-        r = requests.post(url = url, data = data)
-        self.assertEqual('invalid request', r.text)
-        print('Failed as expected: ' + r.text)
-
-    def test_post_vals_fails_with_invalid_onoff(self):
-        data = {'onOff': 2, 'turnAngle': 41.0}
-        route = '/post'
-        url = self.get_server_url() + route
-        r = requests.post(url = url, data = data)
-        self.assertEqual('invalid request', r.text)
-        print('Failed as expected: ' + r.text)
-
-    def test_exception_handler(self):
-        ret = flaskapp.exception_handler("error")
-        self.assertEqual(ret, ("Oh no! 'error'", 400))
-
-    def test_get_default_value(self):
-        route = '/'
-        url = self.get_server_url() + route
-        r = requests.get(url = url)
-        print(r.text)
-        self.assertEquals(r.status_code, 200)
-        retData = eval(str(r.text))
-        self.assertEquals(retData['onOff'], 0)
-        self.assertEquals(retData['turnAngle'], 0.0)
 
 
 class RobotGroupTest(TestCase):

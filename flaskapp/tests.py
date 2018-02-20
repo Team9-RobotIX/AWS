@@ -104,9 +104,9 @@ class FirstTest(LiveServerTestCase):
         url = self.get_server_url() + '/instructions'
         requests.delete(url = url)
 
-        data = [{'instruction': 'MOVE', 'value': '100'},
-                {'instruction': 'TURN', 'value': '90'}]
-        requests.post(url = url, data = data)
+        data = [{'type': 'MOVE', 'value': 100},
+                {'type': 'TURN', 'value': 90}]
+        requests.post(url = url, json = data)
 
         r = requests.get(url = url)
         self.assertEquals(r.status_code, 200)
@@ -117,8 +117,8 @@ class FirstTest(LiveServerTestCase):
         url = self.get_server_url() + '/instructions'
         requests.delete(url = url)
 
-        data = {'instruction': 'MOVE', 'value': '100'}
-        r = requests.post(url = url, data = data)
+        data = {'type': 'MOVE', 'value': 100}
+        r = requests.post(url = url, json = data)
         self.assertEquals(r.status_code, 200)
         retData = simplejson.loads(r.text)
         self.assertEquals(retData, [data])
@@ -127,12 +127,44 @@ class FirstTest(LiveServerTestCase):
         url = self.get_server_url() + '/instructions'
         requests.delete(url = url)
 
-        data = [{'instruction': 'MOVE', 'value': '100'},
-                {'instruction': 'TURN', 'value': '90'}]
-        r = requests.post(url = url, data = data)
+        data = [{'type': 'MOVE', 'value': 100},
+                {'type': 'TURN', 'value': 90}]
+        r = requests.post(url = url, json = data)
         self.assertEquals(r.status_code, 200)
         retData = simplejson.loads(r.text)
         self.assertEquals(retData, data)
+
+    def test_post_instructions_fails_with_missing_type(self):
+        url = self.get_server_url() + '/instructions'
+        requests.delete(url = url)
+
+        data = [{'value': 100}]
+        r = requests.post(url = url, json = data)
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_instructions_fails_with_missing_value(self):
+        url = self.get_server_url() + '/instructions'
+        requests.delete(url = url)
+
+        data = [{'type': 'MOVE'}]
+        r = requests.post(url = url, json = data)
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_instructions_fails_with_invalid_type(self):
+        url = self.get_server_url() + '/instructions'
+        requests.delete(url = url)
+
+        data = [{'type': 'HALT', 'value': 100}]
+        r = requests.post(url = url, json = data)
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_instructions_fails_with_bad_angle(self):
+        url = self.get_server_url() + '/instructions'
+        requests.delete(url = url)
+
+        data = [{'type': 'TURN', 'value': 190.0}]
+        r = requests.post(url = url, json = data)
+        self.assertEquals(r.status_code, 400)
 
     # Object tests
     def test_pacakge_init(self):

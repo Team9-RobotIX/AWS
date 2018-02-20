@@ -2,6 +2,7 @@ from flask_testing import LiveServerTestCase
 import unittest
 import requests
 import flaskapp
+import simplejson
 
 
 class FirstTest(LiveServerTestCase):
@@ -79,6 +80,59 @@ class FirstTest(LiveServerTestCase):
         retData = eval(str(r.text))
         self.assertEquals(retData['onOff'], 0)
         self.assertEquals(retData['turnAngle'], 0.0)
+
+    #                           #
+    #       ROBOT ROUTES        #
+    #                           #
+
+    # Instruction routes
+    def test_delete_instructions(self):
+        url = self.get_server_url() + '/instructions'
+        r = requests.delete(url = url)
+        self.assertEquals(r.status_code, 200)
+
+    def test_get_instructions_queue_empty(self):
+        url = self.get_server_url() + '/instructions'
+        requests.delete(url = url)
+
+        r = requests.get(url = url)
+        self.assertEquals(r.status_code, 200)
+        retData = simplejson.loads(r.text)
+        self.assertEquals(retData, [])
+
+    def test_get_instructions(self):
+        url = self.get_server_url() + '/instructions'
+        requests.delete(url = url)
+
+        data = [{'instruction': 'MOVE', 'value': '100'},
+                {'instruction': 'TURN', 'value': '90'}]
+        requests.post(url = url, data = data)
+
+        r = requests.get(url = url)
+        self.assertEquals(r.status_code, 200)
+        retData = simplejson.loads(r.text)
+        self.assertEquals(retData, data)
+
+    def test_post_instructions_single(self):
+        url = self.get_server_url() + '/instructions'
+        requests.delete(url = url)
+
+        data = {'instruction': 'MOVE', 'value': '100'}
+        r = requests.post(url = url, data = data)
+        self.assertEquals(r.status_code, 200)
+        retData = simplejson.loads(r.text)
+        self.assertEquals(retData, [data])
+
+    def test_post_instructions_multiple(self):
+        url = self.get_server_url() + '/instructions'
+        requests.delete(url = url)
+
+        data = [{'instruction': 'MOVE', 'value': '100'},
+                {'instruction': 'TURN', 'value': '90'}]
+        r = requests.post(url = url, data = data)
+        self.assertEquals(r.status_code, 200)
+        retData = simplejson.loads(r.text)
+        self.assertEquals(retData, data)
 
     # Object tests
     def test_pacakge_init(self):

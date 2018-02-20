@@ -142,6 +142,33 @@ def instructions_delete():
     return ''
 
 
+# Batch instructions route
+@app.route('/instructions/batch', methods = ['GET'])
+def instructions_batch_get():
+    limit = request.values.get('limit')
+    if limit is None:
+        limit = len(get_cache()['instructions'])
+
+    try:
+        limit = int(limit)
+    except Exception as e:
+        return bad_request("Limit has to be positive integer")
+
+    if 'instructions' not in get_cache():
+        get_cache()['instructions'] = []
+    elif len(get_cache()['instructions']) > 0 and limit <= 0:
+        return bad_request("Limit has to be positive integer")
+
+    instructions = get_cache()['instructions'][:limit]
+
+    if 'correction' in get_cache():
+        correction = {'angle': get_cache()['correction']}
+        return jsonify({'instructions': instructions,
+                        'correction': correction})
+    else:
+        return jsonify({'instructions': instructions})
+
+
 # Instruction routes
 @app.route('/instruction/<int:index>', methods = ['GET'])
 def instruction_get(index):

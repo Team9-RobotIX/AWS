@@ -87,6 +87,69 @@ class RobotGroupTest(TestCase):
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
+    # Instruction routes
+    def test_get_instruction(self):
+        data = [{'type': 'MOVE', 'value': 100},
+                {'type': 'TURN', 'value': 90},
+                {'type': 'TURN', 'value': -90}]
+        self.client.delete('/instructions')
+        self.client.post('/instructions', data = json.dumps(data))
+
+        for i in range(0, 3):
+            route = '/instruction/' + str(i)
+            r = self.client.get(route)
+            self.assertEquals(r.status_code, 200)
+            self.assertEquals(r.json, data[i])
+
+    def test_get_instruction_invalid_index(self):
+        data = [{'type': 'MOVE', 'value': 100},
+                {'type': 'TURN', 'value': 90},
+                {'type': 'TURN', 'value': -90}]
+        self.client.delete('/instructions')
+        self.client.post('/instructions', data = json.dumps(data))
+
+        route = '/instruction/-1'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 404)
+
+        route = '/instruction/4'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 404)
+
+    def test_delete_instruction(self):
+        data = [{'type': 'MOVE', 'value': 100},
+                {'type': 'TURN', 'value': 90},
+                {'type': 'TURN', 'value': -90}]
+        self.client.delete('/instructions')
+        self.client.post('/instructions', data = json.dumps(data))
+
+        route = '/instruction/0'
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 200)
+        s = self.client.get('/instructions')
+        self.assertEquals(s.status_code, 200)
+        self.assertEquals(s.json, [data[1], data[2]])
+
+    def test_delete_instruction_invalid_index(self):
+        data = [{'type': 'MOVE', 'value': 100},
+                {'type': 'TURN', 'value': 90},
+                {'type': 'TURN', 'value': -90}]
+        self.client.delete('/instructions')
+        self.client.post('/instructions', data = json.dumps(data))
+
+        route = '/instruction/-1'
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 404)
+
+        route = '/instruction/4'
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 404)
+
+        # Verify collection has not mutated
+        s = self.client.get('/instructions')
+        self.assertEquals(s.status_code, 200)
+        self.assertEquals(s.json, data)
+
     # Correction routes
     def test_get_correction_none(self):
         route = '/correction'

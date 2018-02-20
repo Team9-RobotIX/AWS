@@ -87,6 +87,71 @@ class RobotGroupTest(TestCase):
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
+    # Correction routes
+    def test_get_correction_none(self):
+        route = '/correction'
+        self.client.delete(route)
+
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 404)
+
+    def test_get_correction_angle(self):
+        route = '/correction'
+        data = {'angle': 50.0}
+        self.client.delete(route)
+        self.client.post(route, data = json.dumps(data))
+
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+
+    def test_post_correction_angle(self):
+        route = '/correction'
+        data = {'angle': 50.0}
+        self.client.delete(route)
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, data)
+
+    def test_post_correction_error_resubmit(self):
+        route = '/correction'
+        data = {'angle': 50.0}
+
+        # Ensure a correction has already been issued
+        self.client.post(route, data = json.dumps(data))
+
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_correction_error_no_angle(self):
+        route = '/correction'
+        self.client.delete(route)
+
+        data = {'foo': 50.0}
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_correction_error_angle_not_float(self):
+        route = '/correction'
+        self.client.delete(route)
+
+        data = {'angle': 50}
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    def test_delete_correction_angle(self):
+        route = '/correction'
+        data = {'angle': 50.0}
+        self.client.post(route, data = json.dumps(data))
+
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 200)
+
+    def test_delete_correction_error(self):
+        route = '/correction'
+        self.client.delete(route)  # Ensure correction is clear
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 404)
+
     # Lock routes
     def test_post_lock_set_true(self):
         data = {'locked': True}

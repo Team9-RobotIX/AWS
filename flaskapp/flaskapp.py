@@ -142,6 +142,40 @@ def instructions_delete():
     return ''
 
 
+# Correction routes
+@app.route('/correction', methods = ['GET'])
+def correction_get():
+    if 'correction' not in get_cache():
+        return file_not_found("No correction has been issued!")
+
+    return jsonify({'angle': get_cache()['correction']})
+
+
+@app.route('/correction', methods = ['POST'])
+def correction_post():
+    if 'correction' in get_cache():
+        return bad_request("A correction has already been issued!")
+
+    data = request.get_json(force=True)
+    if 'angle' not in data:
+        return bad_request("You have not supplied a correction angle!")
+    elif not isinstance(data['angle'], float):
+        return bad_request("Supplied angle is not a float")
+
+    get_cache()['correction'] = data['angle']
+    return jsonify({'angle': get_cache()['correction']})
+
+
+@app.route('/correction', methods = ['DELETE'])
+def correction_delete():
+    if 'correction' not in get_cache():
+        return file_not_found("No correction has been issued!")
+
+    del get_cache()['correction']
+    return ''
+
+
+# Lock routes
 @app.route('/lock', methods = ['GET'])
 def lock_get():
     if 'locked' not in get_cache():
@@ -176,7 +210,20 @@ def bad_request(friendly):
         'friendly':  friendly
     }
 
-    return jsonify(data), 400
+    return jsonify(data), error_code
+
+
+def file_not_found(friendly):
+    error_code = 404
+    error = 'File not found'
+
+    data = {
+        'code': error_code,
+        'error': error,
+        'friendly':  friendly
+    }
+
+    return jsonify(data), error_code
 
 
 @app.errorhandler(Exception)

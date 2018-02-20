@@ -1,8 +1,8 @@
-from flask_testing import LiveServerTestCase
+from flask_testing import TestCase, LiveServerTestCase
+import json
 import unittest
 import requests
 import flaskapp
-import simplejson
 
 
 class FirstTest(LiveServerTestCase):
@@ -13,18 +13,17 @@ class FirstTest(LiveServerTestCase):
         app.config['LIVESERVER_TIMEOUT'] = 10
         return app
 
-    def setUp(self):
-        print('setup')
-
     def test_server_is_up_and_running(self):
-        url = self.get_server_url() + '/'
+        route = '/'
+        url = self.get_server_url() + route
         r = requests.get(url = url)
         self.assertEquals(r.status_code, 200)
         print('Server is up and running')
 
     def test_post_vals_works_with_correct_vals(self):
         data = {'onOff': 1, 'turnAngle': 41.0}
-        url = self.get_server_url() + '/post'
+        route = '/post'
+        url = self.get_server_url() + route
         r = requests.post(url = url, data = data)
         retData = eval(str(r.text))
         self.assertEqual(data['turnAngle'], retData['turnAngle'])
@@ -33,14 +32,16 @@ class FirstTest(LiveServerTestCase):
 
     def test_post_vals_fails_with_invalid_turnangle(self):
         data = {'onOff': 1, 'turnAngle': 181.0}
-        url = self.get_server_url() + '/post'
+        route = '/post'
+        url = self.get_server_url() + route
         r = requests.post(url = url, data = data)
         self.assertEqual('invalid request', r.text)
         print('Failed as expected: ' + r.text)
 
     def test_post_vals_fails_with_invalid_onoff(self):
         data = {'onOff': 2, 'turnAngle': 41.0}
-        url = self.get_server_url() + '/post'
+        route = '/post'
+        url = self.get_server_url() + route
         r = requests.post(url = url, data = data)
         self.assertEqual('invalid request', r.text)
         print('Failed as expected: ' + r.text)
@@ -50,7 +51,8 @@ class FirstTest(LiveServerTestCase):
         self.assertEqual(ret, ("Oh no! 'error'", 400))
 
     def test_get_default_value(self):
-        url = self.get_server_url() + '/'
+        route = '/'
+        url = self.get_server_url() + route
         r = requests.get(url = url)
         print(r.text)
         self.assertEquals(r.status_code, 200)
@@ -58,129 +60,130 @@ class FirstTest(LiveServerTestCase):
         self.assertEquals(retData['onOff'], 0)
         self.assertEquals(retData['turnAngle'], 0.0)
 
-    #                           #
-    #       ROBOT ROUTES        #
-    #                           #
+
+class RobotGroupTest(TestCase):
+    def create_app(self):
+        app = flaskapp.app
+        app.config['TESTING'] = True
+        return app
 
     # Instruction routes
     def test_delete_instructions(self):
-        url = self.get_server_url() + '/instructions'
-        r = requests.delete(url = url)
+        route = '/instructions'
+        r = self.client.delete(route)
         self.assertEquals(r.status_code, 200)
 
     def test_get_instructions_queue_empty(self):
-        url = self.get_server_url() + '/instructions'
-        requests.delete(url = url)
+        route = '/instructions'
+        self.client.delete(route)
 
-        r = requests.get(url = url)
+        r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        retData = simplejson.loads(r.text)
-        self.assertEquals(retData, [])
+        self.assertEquals(r.json, [])
 
     def test_get_instructions(self):
-        url = self.get_server_url() + '/instructions'
-        requests.delete(url = url)
+        route = '/instructions'
+        self.client.delete(route)
 
         data = [{'type': 'MOVE', 'value': 100},
                 {'type': 'TURN', 'value': 90}]
-        requests.post(url = url, json = data)
+        self.client.post(route, data = json.dumps(data))
 
-        r = requests.get(url = url)
+        r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        retData = simplejson.loads(r.text)
-        self.assertEquals(retData, data)
+        self.assertEquals(r.json, data)
 
     def test_post_instructions_single(self):
-        url = self.get_server_url() + '/instructions'
-        requests.delete(url = url)
+        route = '/instructions'
+        self.client.delete(route)
 
         data = {'type': 'MOVE', 'value': 100}
-        r = requests.post(url = url, json = data)
+        r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
-        retData = simplejson.loads(r.text)
-        self.assertEquals(retData, [data])
+        self.assertEquals(r.json, [data])
 
     def test_post_instructions_multiple(self):
-        url = self.get_server_url() + '/instructions'
-        requests.delete(url = url)
+        route = '/instructions'
+        self.client.delete(route)
 
         data = [{'type': 'MOVE', 'value': 100},
                 {'type': 'TURN', 'value': 90}]
-        r = requests.post(url = url, json = data)
+        r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
-        retData = simplejson.loads(r.text)
-        self.assertEquals(retData, data)
+        self.assertEquals(r.json, data)
 
     def test_post_instructions_fails_with_missing_type(self):
-        url = self.get_server_url() + '/instructions'
-        requests.delete(url = url)
+        route = '/instructions'
+        self.client.delete(route)
 
         data = [{'value': 100}]
-        r = requests.post(url = url, json = data)
+        r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
     def test_post_instructions_fails_with_missing_value(self):
-        url = self.get_server_url() + '/instructions'
-        requests.delete(url = url)
+        route = '/instructions'
+        self.client.delete(route)
 
         data = [{'type': 'MOVE'}]
-        r = requests.post(url = url, json = data)
+        r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
     def test_post_instructions_fails_with_invalid_type(self):
-        url = self.get_server_url() + '/instructions'
-        requests.delete(url = url)
+        route = '/instructions'
+        self.client.delete(route)
 
         data = [{'type': 'HALT', 'value': 100}]
-        r = requests.post(url = url, json = data)
+        r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
     def test_post_instructions_fails_with_bad_angle(self):
-        url = self.get_server_url() + '/instructions'
-        requests.delete(url = url)
+        route = '/instructions'
+        self.client.delete(route)
 
         data = [{'type': 'TURN', 'value': 190.0}]
-        r = requests.post(url = url, json = data)
+        r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
     # Lock routes
     def test_post_lock_set_true(self):
         data = {'locked': True}
-        url = self.get_server_url() + '/lock'
-        r = requests.post(url = url, json = data)
+        route = '/lock'
+        r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
-        retData = simplejson.loads(r.text)
-        self.assertEquals(retData, data)
+        self.assertEquals(r.json, data)
 
     def test_post_lock_set_false(self):
         data = {'locked': True}
-        url = self.get_server_url() + '/lock'
-        r = requests.post(url = url, json = data)
+        route = '/lock'
+        r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
-        retData = simplejson.loads(r.text)
-        self.assertEquals(retData, data)
+        self.assertEquals(r.json, data)
 
     def test_get_lock_false(self):
-        url = self.get_server_url() + '/lock'
+        route = '/lock'
         data = {'locked': False}
-        requests.post(url = url, json = data)
+        self.client.post(route, data = json.dumps(data))
 
-        r = requests.get(url = url)
+        r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        retData = simplejson.loads(r.text)
-        self.assertEquals(retData, data)
+        self.assertEquals(r.json, data)
 
     def test_get_lock_true(self):
-        url = self.get_server_url() + '/lock'
+        route = '/lock'
         data = {'locked': True}
-        requests.post(url = url, json = data)
+        self.client.post(route, data = json.dumps(data))
 
-        r = requests.get(url = url)
+        r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        retData = simplejson.loads(r.text)
-        self.assertEquals(retData, data)
+        self.assertEquals(r.json, data)
 
-    # Object tests
+
+class DataStructureTest(TestCase):
+    def create_app(self):
+        app = flaskapp.app
+        app.config['TESTING'] = True
+        return app
+
     def test_pacakge_init(self):
         # Package can be initialised without errors
         flaskapp.Package(1, 'package', 'desc', 3, 1, 5, 3600)
@@ -210,9 +213,6 @@ class FirstTest(LiveServerTestCase):
 
         # p1 has priority 3, p2 has priority 1 so delivery priority is 1.
         self.assertEqual(d3.priority, 1)
-
-    def tearDown(self):
-        print('teardown')
 
 
 if __name__ == '__main__':

@@ -4,7 +4,7 @@ import dataset
 import shelve
 import copy
 from flask_bcrypt import Bcrypt
-from classes import Package, Delivery, Instruction
+from classes import Package, Delivery, Instruction, Target
 from encoder import CustomJSONEncoder
 
 app = Flask(__name__)
@@ -167,6 +167,57 @@ def targets_delete():
     return ''
 
 
+@app.route('/target/<int:id>', methods = ['GET'])
+def target_get(id):
+    targetsTable = get_db()['targets']
+
+    if id < 0:
+        return file_not_found("Target must be positive integer")
+
+    target = targetsTable.find_one(id=id)
+    if target is None:
+        return file_not_found("This target does not exist")
+
+    return jsonify(Target.from_dict(target))
+
+
+@app.route('/target/<int:id>', methods = ['PATCH'])
+def target_patch(id):
+    targetsTable = get_db()['targets']
+
+    if id < 0:
+        return file_not_found("Target must be positive integer")
+
+    target = targetsTable.find_one(id=id)
+    if target is None:
+        return file_not_found("This target does not exist")
+
+    data = request.get_json(force=True)
+    if 'color' in data:
+        if not isinstance(data['color'], basestring):  # NOQA
+            return bad_request("Color must be of type string")
+
+        targetsTable.update({'id': id, 'color': data['color']}, ['id'])
+
+    return target_get(id)
+
+
+@app.route('/target/<int:id>', methods = ['DELETE'])
+def target_delete(id):
+    targetsTable = get_db()['targets']
+
+    if id < 0:
+        return file_not_found("Target must be positive integer")
+
+    target = targetsTable.find_one(id=id)
+    if target is None:
+        return file_not_found("This target does not exist")
+
+    targetsTable.delete(id=id)
+
+    return ''
+
+
 #                                         #
 #              ROBOT ROUTES               #
 #                                         #
@@ -301,7 +352,6 @@ def lock_get():
 def lock_post():
     data = request.get_json(force=True)
 
-    print(data)
     if 'locked' not in data:
         return bad_request("Must supply a state for the lock.")
     elif not isinstance(data['locked'], bool):

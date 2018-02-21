@@ -105,6 +105,68 @@ def queuePage():                                    # pragma: no cover
     return 'Queue: ' + str([x.name for x in d])
 
 
+#                                          #
+#              TARGET ROUTES               #
+#                                          #
+@app.route('/targets', methods = ['GET'])
+def targets_get():
+    targetsTable = get_db()['targets']
+    targets = targetsTable.all()
+
+    result = []
+    for t in targets:
+        obj = {
+            'id': t['id'],
+            'name': t['name']
+        }
+
+        if 'description' in t:
+            obj['description'] = t['description']
+
+        if 'color' in t:
+            obj['color'] = t['color']
+
+        result.append(obj)
+
+    return jsonify(result)
+
+
+@app.route('/targets', methods = ['POST'])
+def targets_post():
+    targetsTable = get_db()['targets']
+    data = request.get_json(force=True)
+
+    if 'name' not in data:
+        return bad_request("Must provide name for target.")
+    elif not isinstance(data['name'], basestring):  # NOQA
+        return bad_request("Name must be string")
+    elif 'description' in data and not isinstance(data['description'], basestring):  # NOQA
+        return bad_request("Description must be string")
+    elif 'color' in data and not isinstance(data['color'], str):
+        return bad_request("Color must be string")
+
+    obj = {
+        'name': data['name']
+    }
+
+    if 'description' in data:
+        obj['description'] = data['description']
+
+    if 'color' in data:
+        obj['color'] = data['color']
+
+    targetsTable.insert(obj)
+
+    return targets_get()
+
+
+@app.route('/targets', methods = ['DELETE'])
+def targets_delete():
+    targetsTable = get_db()['targets']
+    targetsTable.drop()
+    return ''
+
+
 #                                         #
 #              ROBOT ROUTES               #
 #                                         #

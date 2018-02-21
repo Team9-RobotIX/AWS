@@ -115,18 +115,7 @@ def targets_get():
 
     result = []
     for t in targets:
-        obj = {
-            'id': t['id'],
-            'name': t['name']
-        }
-
-        if 'description' in t:
-            obj['description'] = t['description']
-
-        if 'color' in t:
-            obj['color'] = t['color']
-
-        result.append(obj)
+        result.append(Target.from_dict(t))
 
     return jsonify(result)
 

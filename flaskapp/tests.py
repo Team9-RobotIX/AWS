@@ -105,6 +105,128 @@ class TargetGroupTest(TestCase):
         r = self.client.post(route, data = json.dumps(data[0]))
         self.assertEquals(r.status_code, 400)
 
+    # Target route
+    def test_get_target(self):
+        data = [{'name': 'ok', 'description': 'bar'},
+                {'name': 'Pharmacy', 'description': 'foo'}]
+        self.client.delete('/targets')
+        self.client.post('/targets', data = json.dumps(data[0]))
+        self.client.post('/targets', data = json.dumps(data[1]))
+
+        route = '/target/1'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        for k, v in data[0].iteritems():
+            self.assertEquals(v, r.json[k])
+
+        route = '/target/2'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        for k, v in data[1].iteritems():
+            self.assertEquals(v, r.json[k])
+
+    def test_get_target_error_invalid_index(self):
+        self.client.delete('/targets')
+
+        route = '/target/1'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 404)
+
+        route = '/target/-1'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 404)
+
+    def test_get_target_error_index_numeric(self):
+        self.client.delete('/targets')
+
+        route = '/target/a'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 404)
+
+    def test_patch_target(self):
+        data = [{'name': 'ok', 'description': 'bar'},
+                {'name': 'Pharmacy', 'description': 'foo'}]
+        self.client.delete('/targets')
+        self.client.post('/targets', data = json.dumps(data[0]))
+
+        route = '/target/1'
+        data2 = {'color': 'red'}
+        r = self.client.patch(route, data = json.dumps(data2))
+        self.assertEquals(r.status_code, 200)
+        for k, v in data[1].iteritems():
+            self.assertEquals(v, data[1][k])
+        self.assertEquals(r.json['color'], 'red')
+
+    def test_patch_target_error_invalid_color(self):
+        data = [{'name': 'ok', 'description': 'bar'},
+                {'name': 'Pharmacy', 'description': 'foo'}]
+        self.client.delete('/targets')
+        self.client.post('/targets', data = json.dumps(data[0]))
+
+        route = '/target/1'
+        data2 = {'color': 2.0}
+        r = self.client.patch(route, data = json.dumps(data2))
+        self.assertEquals(r.status_code, 400)
+
+    def test_patch_target_error_invalid_index(self):
+        data = [{'name': 'ok', 'description': 'bar'},
+                {'name': 'Pharmacy', 'description': 'foo'}]
+        self.client.delete('/targets')
+        self.client.post('/targets', data = json.dumps(data[0]))
+
+        route = '/target/-1'
+        data2 = {'color': 'red'}
+        r = self.client.patch(route, data = json.dumps(data2))
+        self.assertEquals(r.status_code, 404)
+
+    def test_patch_target_error_index_numeric(self):
+        data = [{'name': 'ok', 'description': 'bar'},
+                {'name': 'Pharmacy', 'description': 'foo'}]
+        self.client.delete('/targets')
+        self.client.post('/targets', data = json.dumps(data[0]))
+
+        route = '/target/a'
+        data2 = {'color': 'red'}
+        r = self.client.patch(route, data = json.dumps(data2))
+        self.assertEquals(r.status_code, 404)
+
+    def test_delete_target(self):
+        data = [{'name': 'ok', 'description': 'bar'},
+                {'name': 'Pharmacy', 'description': 'foo'}]
+        self.client.delete('/targets')
+        self.client.post('/targets', data = json.dumps(data[0]))
+        self.client.post('/targets', data = json.dumps(data[1]))
+
+        route = '/target/1'
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 200)
+
+    def test_delete_target_error_invalid_index(self):
+        data = [{'name': 'ok', 'description': 'bar'},
+                {'name': 'Pharmacy', 'description': 'foo'}]
+        self.client.delete('/targets')
+        self.client.post('/targets', data = json.dumps(data[0]))
+        self.client.post('/targets', data = json.dumps(data[1]))
+
+        route = '/target/3'
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 404)
+
+        route = '/target/-1'
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 404)
+
+    def test_delete_target_error_index_numeric(self):
+        data = [{'name': 'ok', 'description': 'bar'},
+                {'name': 'Pharmacy', 'description': 'foo'}]
+        self.client.delete('/targets')
+        self.client.post('/targets', data = json.dumps(data[0]))
+        self.client.post('/targets', data = json.dumps(data[1]))
+
+        route = '/target/a'
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 404)
+
 
 class RobotGroupTest(TestCase):
     def create_app(self):

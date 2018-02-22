@@ -235,6 +235,29 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, [])
 
+    def test_post_deliveries_unique_id(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': 'Blood sample',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }, {
+            'name': 'Blood sample',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }]
+        self.client.post(route, data = json.dumps(data[0]))
+        self.client.post(route, data = json.dumps(data[1]))
+
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertNotEquals(r.json[0]['id'], r.json[1]['id'])
+
 
 class TargetGroupTest(TestCase):
     def create_app(self):

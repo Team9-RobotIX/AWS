@@ -127,6 +127,7 @@ def deliveries_post():
         get_cache()['deliveryQueueCounter'] = 0
 
     data = request.get_json(force=True)
+    counter = get_cache()['deliveryQueueCounter']
 
     # Error checking
     if 'name' not in data:
@@ -151,15 +152,16 @@ def deliveries_post():
         return bad_request("To target doesn't exist")
 
     if 'description' in data:
-        d = Delivery(0, fromTarget, toTarget, data['priority'], data['name'],
-                     data['description'])
+        d = Delivery(counter, fromTarget, toTarget,
+                     data['priority'], data['name'], data['description'])
     else:
-        d = Delivery(0, fromTarget, toTarget, data['priority'], data['name'])
+        d = Delivery(counter, fromTarget, toTarget,
+                     data['priority'], data['name'])
 
     h = copy.deepcopy(get_cache()['deliveryQueue'])
-    get_cache()['deliveryQueueCounter'] += 1
-    heapq.heappush(h, [d.priority, get_cache()['deliveryQueueCounter'], d])
+    heapq.heappush(h, [d.priority, counter, d])
 
+    get_cache()['deliveryQueueCounter'] += 1
     get_cache()['deliveryQueue'] = h
 
     return deliveries_get()

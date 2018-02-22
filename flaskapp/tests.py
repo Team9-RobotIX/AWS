@@ -4,6 +4,237 @@ import unittest
 import flaskapp
 
 
+class DeliveryGroupTest(TestCase):
+    def create_app(self):
+        app = flaskapp.app
+        app.config['TESTING'] = True
+        return app
+
+    def create_dummy_targets(self):
+        route = '/targets'
+        data = [{'name': 'Reception'},
+                {'name': 'Pharmacy', 'description': 'foo'}]
+        self.client.delete(route)
+        self.client.post(route, data = json.dumps(data[0]))
+        self.client.post(route, data = json.dumps(data[1]))
+
+    def check_delivery_response_match(self, res, data):
+        for k, v in res.iteritems():
+            # ID assigned by server, so we don't check it
+            if k != 'id':
+                if k == 'from' or k == 'to':
+                    self.assertEquals(v['id'], data[k])
+                else:
+                    self.assertEquals(v, data[k])
+
+    # Deliveries route
+    def test_get_deliveries_empty(self):
+        route = '/deliveries'
+        self.client.delete(route)
+
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, [])
+
+    def test_get_deliveries_single(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': 'Blood sample',
+            'description': 'Blood sample for patient Jane Doe',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }]
+        self.client.post(route, data = json.dumps(data[0]))
+
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        for i in range(0, len(r.json)):
+            self.check_delivery_response_match(r.json[i], data[i])
+
+    def test_get_deliveries_multiple(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': 'Blood sample',
+            'description': 'Blood sample for patient Jane Doe',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }, {
+            'name': 'Papers',
+            'description': 'Patient records',
+            'priority': 0,
+            'from': 2,
+            'to': 1
+        }]
+        self.client.post(route, data = json.dumps(data[0]))
+        self.client.post(route, data = json.dumps(data[1]))
+
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        for i in range(0, len(r.json)):
+            self.check_delivery_response_match(r.json[i], data[i])
+
+    def test_post_deliveries(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': 'Blood sample',
+            'description': 'Blood sample for patient Jane Doe',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }]
+        r = self.client.post(route, data = json.dumps(data[0]))
+
+        self.assertEquals(r.status_code, 200)
+        for i in range(0, len(r.json)):
+            self.check_delivery_response_match(r.json[i], data[i])
+
+    def test_post_deliveries_no_description(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': 'Blood sample',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }]
+        r = self.client.post(route, data = json.dumps(data[0]))
+
+        self.assertEquals(r.status_code, 200)
+        for i in range(0, len(r.json)):
+            self.check_delivery_response_match(r.json[i], data[i])
+
+    def test_post_deliveries_error_no_name(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'description': 'Blood sample for patient Jane Doe',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }]
+        r = self.client.post(route, data = json.dumps(data[0]))
+
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_deliveries_error_name_not_string(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': None,
+            'description': 'Blood sample for patient',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }]
+        r = self.client.post(route, data = json.dumps(data[0]))
+
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_deliveries_error_no_priority(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': 'Random name',
+            'description': 'Blood sample for patient',
+            'from': 1,
+            'to': 2
+        }]
+        r = self.client.post(route, data = json.dumps(data[0]))
+
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_deliveries_error_invalid_priority(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': 'Random name',
+            'description': 'Blood sample for patient',
+            'priority': None,
+            'from': 1,
+            'to': 2
+        }]
+        r = self.client.post(route, data = json.dumps(data[0]))
+
+        self.assertEquals(r.status_code, 400)
+
+    def test_delete_deliveries_empty(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 200)
+
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, [])
+
+    def test_delete_deliveries_single(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': 'Blood sample',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }]
+        self.client.post(route, data = json.dumps(data[0]))
+
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 200)
+
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, [])
+
+    def test_delete_deliveries_multiple(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': 'Blood sample',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }, {
+            'name': 'Blood sample',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }]
+        self.client.post(route, data = json.dumps(data[0]))
+
+        r = self.client.delete(route)
+        self.assertEquals(r.status_code, 200)
+
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, [])
+
+
 class TargetGroupTest(TestCase):
     def create_app(self):
         app = flaskapp.app
@@ -555,35 +786,23 @@ class DataStructureTest(TestCase):
         app.config['TESTING'] = True
         return app
 
-    def test_pacakge_init(self):
-        # Package can be initialised without errors
-        flaskapp.Package(1, 'package', 'desc', 3, 1, 5, 3600)
-
-        # Package wuth minTemp higher than maxTemp raises error
-        with self.assertRaises(ValueError):
-            flaskapp.Package(2, 'package', 'desc', 3, 100, 0, 3600)
-
-        # Package with negative time raises error
-        with self.assertRaises(ValueError):
-            flaskapp.Package(3, 'package', 'desc', 3, 1, 5, -1)
-
     def test_delivery_init(self):
-        p1 = flaskapp.Package(1, 'package', 'desc', 3, 1, 5, 3600)
-        pList = [p1]
+        t1 = flaskapp.Target(1, "Reception")
+        t2 = flaskapp.Target(2, "Office")
 
         # Delivery can be initialised without errors
-        flaskapp.Delivery(1, pList, 'A', 'B', 'PENDING')
+        flaskapp.Delivery(1, t1, t2, 0, "Foo", "Bar")
 
         # Delivery with no packages raises an error
         with self.assertRaises(ValueError):
-            flaskapp.Delivery(2, [], 'A', 'B', 'PENDING')
+            flaskapp.Delivery(1, t1, t2, 0, "Foo", "Bar",
+                              5, 20.0,
+                              19.0)
 
-        p2 = flaskapp.Package(2, 'package', 'desc', 1, 1, 5, 3600)
-        pList.append(p2)
-        d3 = flaskapp.Delivery(3, pList, 'A', 'B', 'PENDING')
-
-        # p1 has priority 3, p2 has priority 1 so delivery priority is 1.
-        self.assertEqual(d3.priority, 1)
+        with self.assertRaises(ValueError):
+            flaskapp.Delivery(1, t1, t2, 0, "Foo", "Bar",
+                              5, 20.0,
+                              21.0, -1)
 
 
 if __name__ == '__main__':

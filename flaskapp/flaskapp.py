@@ -4,7 +4,7 @@ import dataset
 import shelve
 import copy
 from flask_bcrypt import Bcrypt
-from classes import Package, Delivery, Instruction, Target
+from classes import Delivery, Instruction, Target
 from encoder import CustomJSONEncoder
 
 app = Flask(__name__)
@@ -67,6 +67,7 @@ def register():
 
 
 # Demo of adding to and removing from the queue
+"""
 @app.route('/getQueue', methods = ['GET', 'POST'])
 def queuePage():                                    # pragma: no cover
     h = []
@@ -103,6 +104,73 @@ def queuePage():                                    # pragma: no cover
 
     # Return the names of every package in the delivery
     return 'Queue: ' + str([x.name for x in d])
+"""
+
+
+#                                            #
+#              DELIVERY ROUTES               #
+#                                            #
+@app.route('/deliveries', methods = ['GET'])
+def deliveries_get():
+    if 'deliveryQueue' not in get_cache():
+        get_cache()['deliveryQueue'] = []
+
+    return jsonify([x[2] for x in get_cache()['deliveryQueue']])
+
+
+@app.route('/deliveries', methods = ['POST'])
+def deliveries_post():
+    if 'deliveryQueue' not in get_cache():
+        get_cache()['deliveryQueue'] = []
+
+    if 'deliveryQueueCounter' not in get_cache():
+        get_cache()['deliveryQueueCounter'] = 0
+
+    data = request.get_json(force=True)
+
+    # Error checking
+    if 'name' not in data:
+        return bad_request("Must provide a name")
+    if not isinstance(data['name'], basestring):        # NOQA
+        return bad_request("Name must be string")
+    if ('description' in data and not isinstance(data['description'], basestring)):        # NOQA
+        return bad_request("Description must be string")
+    if 'priority' not in data:
+        return bad_request("Must provide a priority")
+    if not isinstance(data['priority'], int):
+        return bad_request("Priority must be integer")
+
+    targetsTable = get_db()['targets']
+    fromTarget = targetsTable.find_one(id=data['from'])
+    toTarget = targetsTable.find_one(id=data['to'])
+
+    if fromTarget is None:
+        return bad_request("From target doesn't exist")
+
+    if toTarget is None:
+        return bad_request("To target doesn't exist")
+
+    if 'description' in data:
+        d = Delivery(0, fromTarget, toTarget, data['priority'], data['name'],
+                     data['description'])
+    else:
+        d = Delivery(0, fromTarget, toTarget, data['priority'], data['name'])
+
+    h = copy.deepcopy(get_cache()['deliveryQueue'])
+    get_cache()['deliveryQueueCounter'] += 1
+    heapq.heappush(h, [d.priority, get_cache()['deliveryQueueCounter'], d])
+
+    get_cache()['deliveryQueue'] = h
+
+    return deliveries_get()
+
+
+@app.route('/deliveries', methods = ['DELETE'])
+def deliveries_delete():
+    if 'deliveryQueue' in get_cache():
+        get_cache()['deliveryQueue'] = []
+
+    return ''
 
 
 #                                          #

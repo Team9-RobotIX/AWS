@@ -1,35 +1,36 @@
 from enum import Enum
 
 
-# Describes the item added to the delivery
-class Package:
-    def __init__(self, id, name, description, priority, minTemp,
-                 maxTemp, timeLimit):
+# A delivery contains packages
+class DeliveryState(Enum):
+    IN_QUEUE = 0,
+    IN_PROGRESS = 1,
+    AWAITING_AUTHENTICATION = 2,
+    AWAITING_PICKUP = 3,
+    COMPLETED = 4,
+    UNKNOWN = 5
+
+
+class Delivery:
+    def __init__(self, id, fromTarget, toTarget, priority, name, description = None,
+                 state = DeliveryState.UNKNOWN, minTemp = None,
+                 maxTemp = None, timeLimit = None):
         self.id = id
+        self.fromTarget = fromTarget
+        self.toTarget = toTarget
         self.name = name
         self.description = description
         self.priority = priority
+
+        self.state = state
         self.minTemp = minTemp
         self.maxTemp = maxTemp
         self.timeLimit = timeLimit
-        if(minTemp > maxTemp):
+
+        if(minTemp and maxTemp and minTemp > maxTemp):
             raise ValueError("Invalid temperatures")
-        if(timeLimit < 0):
+        if(timeLimit and timeLimit < 0):
             raise ValueError("Invalid time limit")
-
-
-# A delivery contains packages
-class Delivery:
-    def __init__(self, id, packageList, fromLoc, toLoc, state):
-        self.id = id
-        self.packageList = packageList
-        self.fromLoc = fromLoc
-        self.toLoc = toLoc
-        # Lowest number has highest priority
-        self.priority = min([x.priority for x in packageList])
-        self.state = state
-        if(len(packageList) < 1):
-            raise ValueError("No packages")
 
 
 # Describes an instruction to the robot

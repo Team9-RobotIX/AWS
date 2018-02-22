@@ -226,6 +226,7 @@ class DeliveryGroupTest(TestCase):
             'to': 2
         }]
         self.client.post(route, data = json.dumps(data[0]))
+        self.client.post(route, data = json.dumps(data[1]))
 
         r = self.client.delete(route)
         self.assertEquals(r.status_code, 200)

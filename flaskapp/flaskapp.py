@@ -66,47 +66,6 @@ def register():
         return "invalid username/password"
 
 
-# Demo of adding to and removing from the queue
-"""
-@app.route('/getQueue', methods = ['GET', 'POST'])
-def queuePage():                                    # pragma: no cover
-    h = []
-
-    # Low priority delivery with 1 package
-    pList1 = []
-    p1 = Package(1, 'BloodSample', 'A sample of blood', 2, -5, 3, 3600)
-    pList1.append(p1)
-    d1 = Delivery(1, pList1, 'A', 'B', 'PENDING')
-
-    # Medium priority delivery with 1 package
-    pList2 = []
-    p2 = Package(2, 'Shoe', 'A shoe', 3, -5, 100, 100000)
-    pList2.append(p2)
-    d2 = Delivery(2, pList2, 'C', 'D', 'PENDING')
-
-    # High priority delivery with 2 packages
-    pList3 = []
-    p3 = Package(3, 'Heart', 'An actual human heart', 1, -5, 5, 600)
-    p4 = Package(4, 'Barack Obama',
-                 '44th President of the United States Barack Obama', 1,
-                 -5, 40, 600)
-    pList3.append(p3)
-    pList3.append(p4)
-    d3 = Delivery(3, pList3, 'B', 'D', 'PENDING')
-
-    # Push all deliveries onto the heap queue
-    heapq.heappush(h, (d1.priority, d1.packageList))
-    heapq.heappush(h, (d2.priority, d2.packageList))
-    heapq.heappush(h, (d3.priority, d3.packageList))
-
-    # Get the list of packages in the Delivery
-    d = heapq.heappop(h)[1]
-
-    # Return the names of every package in the delivery
-    return 'Queue: ' + str([x.name for x in d])
-"""
-
-
 #                                            #
 #              DELIVERY ROUTES               #
 #                                            #

@@ -4,7 +4,7 @@ import dataset
 import shelve
 import copy
 from flask_bcrypt import Bcrypt
-from classes import Delivery, Instruction, Target
+from classes import Delivery, Instruction, Target, DeliveryState
 from encoder import CustomJSONEncoder
 
 app = Flask(__name__)
@@ -171,7 +171,57 @@ def deliveries_post():
 def deliveries_delete():
     if 'deliveryQueue' in get_cache():
         get_cache()['deliveryQueue'] = []
+        get_cache()['deliveryQueueCounter'] = 0
 
+    return ''
+
+
+# Delivery route
+@app.route('/delivery/<int:id>', methods = ['GET'])
+def delivery_get(id):
+    if 'deliveryQueue' not in get_cache():
+        get_cache()['deliveryQueue'] = []
+
+    item = [x[2] for x in get_cache()['deliveryQueue'] if x[1] == id]
+    if len(item) <= 0:
+        return file_not_found("There's no delivery with that ID!")
+
+    return jsonify(item[0])
+
+
+@app.route('/delivery/<int:id>', methods = ['PATCH'])
+def delivery_patch(id):
+    if 'deliveryQueue' not in get_cache():
+        get_cache()['deliveryQueue'] = []
+
+    if 'deliveryQueue' not in get_cache():
+        get_cache()['deliveryQueue'] = []
+
+    item = [x[2] for x in get_cache()['deliveryQueue'] if x[1] == id]
+    if len(item) <= 0:
+        return file_not_found("There's no delivery with that ID!")
+
+    data = request.get_json(force=True)
+    if 'state' not in data:
+        return bad_request("Missing state")
+    if data['state'] not in [e.name for e in DeliveryState]:
+        return bad_request("Invalid state")
+
+    item[0].state = DeliveryState[data['state']]
+    return delivery_get(id)
+
+
+@app.route('/delivery/<int:id>', methods = ['DELETE'])
+def delivery_delete(id):
+    if 'deliveryQueue' not in get_cache():
+        get_cache()['deliveryQueue'] = []
+
+    item = [x[2] for x in get_cache()['deliveryQueue'] if x[1] == id]
+    if len(item) <= 0:
+        return file_not_found("There's no delivery with that ID!")
+
+    items = [x for x in get_cache()['deliveryQueue'] if x[1] != id]
+    get_cache()['deliveryQueue'] = items
     return ''
 
 

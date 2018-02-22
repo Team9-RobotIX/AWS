@@ -1,5 +1,5 @@
 from flask.json import JSONEncoder
-from classes import Instruction, Target, Delivery
+from classes import Instruction, Target, Delivery, DeliveryState
 
 
 class CustomJSONEncoder(JSONEncoder):
@@ -22,13 +22,16 @@ class CustomJSONEncoder(JSONEncoder):
                 res['color'] = obj.color
 
             return res
+        elif isinstance(obj, DeliveryState):
+            return obj.name
         elif isinstance(obj, Delivery):
             res = {
                 'id': obj.id,
                 'name': obj.name,
                 'priority': obj.priority,
                 'from': obj.fromTarget,
-                'to': obj.toTarget
+                'to': obj.toTarget,
+                'state': obj.state
             }
 
             if obj.description is not None:

@@ -68,7 +68,6 @@ class DeliveryGroupTest(TestCase):
 
     # Deliveries route
     def test_get_deliveries_empty(self):
-
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, [])
@@ -83,60 +82,46 @@ class DeliveryGroupTest(TestCase):
 
 
     def test_get_deliveries_multiple(self):
-
         self.add_data_multiple()
         self.post_data_multiple()
-
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.check_response_in_range(r)
 
     def test_post_deliveries(self):
-
         self.add_data_single()
         r = self.post_data_single()
-
         self.assertEquals(r.status_code, 200)
         self.check_response_in_range(r)
 
     def test_post_deliveries_no_description(self):
-
         self.add_data_single()
         r = self.post_data_single()
-
         self.assertEquals(r.status_code, 200)
         self.check_response_in_range(r)
 
     def test_post_deliveries_error_no_name(self):
-
         self.add_data_single()
         del self.data[0]['name'] #Remove name value from data
         r = self.post_data_single()
-
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_name_not_string(self):
-
         self.add_data_single()
         self.data[0]['name'] = 1 #Set name value to some non-string val
         r = self.post_data_single()
-
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_no_priority(self):
-
         self.add_data_single()
         del self.data[0]['priority'] #Remove priority value from data
         r = self.post_data_single()
-
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_invalid_priority(self):
-
         self.add_data_single()
         self.data[0]['priority'] = None #Set priority value from data to None
         r = self.post_data_single()
-
         self.assertEquals(r.status_code, 400)
 
     def test_delete_deliveries_empty(self):
@@ -148,7 +133,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.json, [])
 
     def test_delete_deliveries_single(self):
-
         self.add_data_single()
         self.post_data_single()
 
@@ -160,7 +144,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.json, [])
 
     def test_delete_deliveries_multiple(self):
-
         self.add_data_multiple()
         self.post_data_multiple()
 
@@ -172,7 +155,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.json, [])
 
     def test_post_deliveries_unique_id(self):
-
         self.add_data_multiple()
         self.post_data_multiple()
 
@@ -182,7 +164,6 @@ class DeliveryGroupTest(TestCase):
 
     # Delivery routes
     def test_get_delivery(self):
-
         self.add_data_multiple()
         self.post_data_multiple()
 
@@ -192,7 +173,6 @@ class DeliveryGroupTest(TestCase):
         self.check_delivery_response_match(r.json, self.data[0])
 
     def test_get_delivery_error_invalid_key(self):
-
         self.add_data_multiple()
         self.post_data_multiple()
 
@@ -201,7 +181,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_get_delivery_error_key_not_found(self):
-
         self.add_data_multiple()
         self.post_data_multiple()
 
@@ -210,7 +189,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_patch_delivery(self):
-
         self.add_data_multiple()
         self.post_data_multiple()
 
@@ -224,7 +202,6 @@ class DeliveryGroupTest(TestCase):
         route = '/delivery/1' #?
 
     def test_patch_delivery_error_invalid_key(self):
-
         self.add_data_multiple()
         self.post_data_multiple()
 
@@ -234,7 +211,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_patch_delivery_error_key_not_found(self):
-
         self.add_data_multiple()
         self.post_data_multiple()
 
@@ -244,7 +220,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_delete_delivery(self):
-
         self.add_data_multiple()
         self.post_data_multiple()
 
@@ -293,7 +268,6 @@ class TargetGroupTest(TestCase):
 
     # Targets route
     def test_get_targets_empty(self):
-
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, [])
@@ -301,7 +275,6 @@ class TargetGroupTest(TestCase):
     def test_get_targets_single(self):
         data = [{'name': 'Reception'}]
         self.post_data_single(data)
-
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.check_in_range_ignoring_id(r, data)
@@ -310,7 +283,6 @@ class TargetGroupTest(TestCase):
         data = [{'name': 'Reception'},
                 {'name': 'Pharmacy', 'description': 'foo'}]
         self.post_data_multiple(data)
-
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.check_in_range_ignoring_id(r, data)
@@ -318,7 +290,6 @@ class TargetGroupTest(TestCase):
     def test_post_targets_name_and_color(self):
         data = [{'name': 'Reception', 'color': 'red'}]
         self.post_data_single(data)
-
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.check_in_range_ignoring_id(r, data)
@@ -326,7 +297,6 @@ class TargetGroupTest(TestCase):
     def test_post_targets_name_and_description(self):
         data = [{'name': 'Reception', 'description': 'foo'}]
         self.post_data_single(data)
-
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.check_in_range_ignoring_id(r, data)
@@ -353,9 +323,17 @@ class TargetGroupTest(TestCase):
 
 
     # Target route
-    def test_get_target(self):
-        data = [{'name': 'ok', 'description': 'bar'},
+
+    def check_repsonse_in_range(self, r, data, index):
+        for k, v in data[index].iteritems():
+            self.assertEquals(v, r.json[k])
+
+    def get_default_data(self):
+        return [{'name': 'ok', 'description': 'bar'},
                 {'name': 'Pharmacy', 'description': 'foo'}]
+
+    def test_get_target(self):
+        data = self.get_default_data()
         self.client.delete('/targets')
         self.client.post('/targets', data = json.dumps(data[0]))
         self.client.post('/targets', data = json.dumps(data[1]))
@@ -363,14 +341,12 @@ class TargetGroupTest(TestCase):
         route = '/target/1'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        for k, v in data[0].iteritems():
-            self.assertEquals(v, r.json[k])
+        self.check_repsonse_in_range(r, data, 0)
 
         route = '/target/2'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        for k, v in data[1].iteritems():
-            self.assertEquals(v, r.json[k])
+        self.check_repsonse_in_range(r, data, 1)
 
     def test_get_target_error_invalid_index(self):
         self.client.delete('/targets')
@@ -385,14 +361,13 @@ class TargetGroupTest(TestCase):
 
     def test_get_target_error_index_numeric(self):
         self.client.delete('/targets')
-
         route = '/target/a'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 404)
 
+
     def test_patch_target(self):
-        data = [{'name': 'ok', 'description': 'bar'},
-                {'name': 'Pharmacy', 'description': 'foo'}]
+        data = self.get_default_data()
         self.client.delete('/targets')
         self.client.post('/targets', data = json.dumps(data[0]))
 
@@ -405,8 +380,7 @@ class TargetGroupTest(TestCase):
         self.assertEquals(r.json['color'], 'red')
 
     def test_patch_target_error_invalid_color(self):
-        data = [{'name': 'ok', 'description': 'bar'},
-                {'name': 'Pharmacy', 'description': 'foo'}]
+        data = self.get_default_data()
         self.client.delete('/targets')
         self.client.post('/targets', data = json.dumps(data[0]))
 
@@ -416,8 +390,7 @@ class TargetGroupTest(TestCase):
         self.assertEquals(r.status_code, 400)
 
     def test_patch_target_error_invalid_index(self):
-        data = [{'name': 'ok', 'description': 'bar'},
-                {'name': 'Pharmacy', 'description': 'foo'}]
+        data = self.get_default_data()
         self.client.delete('/targets')
         self.client.post('/targets', data = json.dumps(data[0]))
 
@@ -427,8 +400,7 @@ class TargetGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_patch_target_error_index_numeric(self):
-        data = [{'name': 'ok', 'description': 'bar'},
-                {'name': 'Pharmacy', 'description': 'foo'}]
+        data = self.get_default_data()
         self.client.delete('/targets')
         self.client.post('/targets', data = json.dumps(data[0]))
 
@@ -438,8 +410,7 @@ class TargetGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_delete_target(self):
-        data = [{'name': 'ok', 'description': 'bar'},
-                {'name': 'Pharmacy', 'description': 'foo'}]
+        data = self.get_default_data()
         self.client.delete('/targets')
         self.client.post('/targets', data = json.dumps(data[0]))
         self.client.post('/targets', data = json.dumps(data[1]))
@@ -449,8 +420,7 @@ class TargetGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
 
     def test_delete_target_error_invalid_index(self):
-        data = [{'name': 'ok', 'description': 'bar'},
-                {'name': 'Pharmacy', 'description': 'foo'}]
+        data = self.get_default_data()
         self.client.delete('/targets')
         self.client.post('/targets', data = json.dumps(data[0]))
         self.client.post('/targets', data = json.dumps(data[1]))
@@ -464,8 +434,7 @@ class TargetGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_delete_target_error_index_numeric(self):
-        data = [{'name': 'ok', 'description': 'bar'},
-                {'name': 'Pharmacy', 'description': 'foo'}]
+        data = self.get_default_data()
         self.client.delete('/targets')
         self.client.post('/targets', data = json.dumps(data[0]))
         self.client.post('/targets', data = json.dumps(data[1]))

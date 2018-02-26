@@ -273,6 +273,9 @@ class TargetGroupTest(TestCase):
         app.config['TESTING'] = True
         return app
 
+    def post_data_single(self, data):
+        return self.client.post(self.route, data = json.dumps(data[0]))
+
     def setUp(self):
         self.route = '/targets'
         self.client.delete(self.route)
@@ -286,7 +289,7 @@ class TargetGroupTest(TestCase):
 
     def test_get_targets_single(self):
         data = [{'name': 'Reception'}]
-        self.client.post(self.route, data = json.dumps(data[0]))
+        self.post_data_single(data)
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
@@ -312,7 +315,7 @@ class TargetGroupTest(TestCase):
 
     def test_post_targets_name_and_color(self):
         data = [{'name': 'Reception', 'color': 'red'}]
-        self.client.post(self.route, data = json.dumps(data[0]))
+        self.post_data_single(data)
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
@@ -324,7 +327,7 @@ class TargetGroupTest(TestCase):
 
     def test_post_targets_name_and_description(self):
         data = [{'name': 'Reception', 'description': 'foo'}]
-        self.client.post(self.route, data = json.dumps(data[0]))
+        self.post_data_single(data)
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
@@ -336,22 +339,22 @@ class TargetGroupTest(TestCase):
 
     def test_post_targets_error_name(self):
         data = [{'name': 7}]
-        r = self.client.post(self.route, data = json.dumps(data[0]))
+        r = self.post_data_single(data)
         self.assertEquals(r.status_code, 400)
 
     def test_post_targets_error_no_name(self):
         data = [{'description': 'foo'}]
-        r = self.client.post(self.route, data = json.dumps(data[0]))
+        r = self.post_data_single(data)
         self.assertEquals(r.status_code, 400)
 
     def test_post_targets_error_description(self):
         data = [{'name': 'ok', 'description': 5}]
-        r = self.client.post(self.route, data = json.dumps(data[0]))
+        r = self.post_data_single(data)
         self.assertEquals(r.status_code, 400)
 
     def test_post_targets_error_color(self):
         data = [{'name': 'ok', 'description': 'foo', 'color': 4}]
-        r = self.client.post(self.route, data = json.dumps(data[0]))
+        r = self.post_data_single(data)
         self.assertEquals(r.status_code, 400)
 
 

@@ -275,22 +275,20 @@ class TargetGroupTest(TestCase):
 
     def setUp(self):
         self.route = '/targets'
+        self.client.delete(self.route)
 
     # Targets route
     def test_get_targets_empty(self):
-        self.client.delete(self.route)
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, [])
 
     def test_get_targets_single(self):
-        route = '/targets'
         data = [{'name': 'Reception'}]
-        self.client.delete(route)
-        self.client.post(route, data = json.dumps(data[0]))
+        self.client.post(self.route, data = json.dumps(data[0]))
 
-        r = self.client.get(route)
+        r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         for i in range(0, len(r.json)):
             for k, v in data[i].iteritems():
@@ -299,14 +297,12 @@ class TargetGroupTest(TestCase):
                     self.assertEquals(v, data[i][k])
 
     def test_get_targets_multiple(self):
-        route = '/targets'
         data = [{'name': 'Reception'},
                 {'name': 'Pharmacy', 'description': 'foo'}]
-        self.client.delete(route)
-        self.client.post(route, data = json.dumps(data[0]))
-        self.client.post(route, data = json.dumps(data[1]))
+        self.client.post(self.route, data = json.dumps(data[0]))
+        self.client.post(self.route, data = json.dumps(data[1]))
 
-        r = self.client.get(route)
+        r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         for i in range(0, len(r.json)):
             for k, v in data[i].iteritems():
@@ -315,12 +311,10 @@ class TargetGroupTest(TestCase):
                     self.assertEquals(v, data[i][k])
 
     def test_post_targets_name_and_color(self):
-        route = '/targets'
         data = [{'name': 'Reception', 'color': 'red'}]
-        self.client.delete(route)
-        self.client.post(route, data = json.dumps(data[0]))
+        self.client.post(self.route, data = json.dumps(data[0]))
 
-        r = self.client.get(route)
+        r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         for i in range(0, len(r.json)):
             for k, v in data[i].itemitems():
@@ -329,12 +323,10 @@ class TargetGroupTest(TestCase):
                     self.assertEquals(v, data[i][k])
 
     def test_post_targets_name_and_description(self):
-        route = '/targets'
         data = [{'name': 'Reception', 'description': 'foo'}]
-        self.client.delete(route)
-        self.client.post(route, data = json.dumps(data[0]))
+        self.client.post(self.route, data = json.dumps(data[0]))
 
-        r = self.client.get(route)
+        r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         for i in range(0, len(r.json)):
             for k, v in data[i].iteritems():
@@ -343,32 +335,25 @@ class TargetGroupTest(TestCase):
                     self.assertEquals(v, data[i][k])
 
     def test_post_targets_error_name(self):
-        route = '/targets'
         data = [{'name': 7}]
-        self.client.delete(route)
-        r = self.client.post(route, data = json.dumps(data[0]))
+        r = self.client.post(self.route, data = json.dumps(data[0]))
         self.assertEquals(r.status_code, 400)
 
     def test_post_targets_error_no_name(self):
-        route = '/targets'
         data = [{'description': 'foo'}]
-        self.client.delete(route)
-        r = self.client.post(route, data = json.dumps(data[0]))
+        r = self.client.post(self.route, data = json.dumps(data[0]))
         self.assertEquals(r.status_code, 400)
 
     def test_post_targets_error_description(self):
-        route = '/targets'
         data = [{'name': 'ok', 'description': 5}]
-        self.client.delete(route)
-        r = self.client.post(route, data = json.dumps(data[0]))
+        r = self.client.post(self.route, data = json.dumps(data[0]))
         self.assertEquals(r.status_code, 400)
 
     def test_post_targets_error_color(self):
-        route = '/targets'
         data = [{'name': 'ok', 'description': 'foo', 'color': 4}]
-        self.client.delete(route)
-        r = self.client.post(route, data = json.dumps(data[0]))
+        r = self.client.post(self.route, data = json.dumps(data[0]))
         self.assertEquals(r.status_code, 400)
+
 
     # Target route
     def test_get_target(self):

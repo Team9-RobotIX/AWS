@@ -28,6 +28,7 @@ class DeliveryGroupTest(TestCase):
 
     def setUp(self):
         self.route = '/deliveries'
+        self.create_dummy_targets()
 
     # Deliveries route
     def test_get_deliveries_empty(self):
@@ -38,7 +39,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.json, [])
 
     def test_get_deliveries_single(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -56,7 +56,6 @@ class DeliveryGroupTest(TestCase):
             self.check_delivery_response_match(r.json[i], data[i])
 
     def test_get_deliveries_multiple(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -81,7 +80,6 @@ class DeliveryGroupTest(TestCase):
             self.check_delivery_response_match(r.json[i], data[i])
 
     def test_post_deliveries(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -98,7 +96,6 @@ class DeliveryGroupTest(TestCase):
             self.check_delivery_response_match(r.json[i], data[i])
 
     def test_post_deliveries_no_description(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -114,7 +111,6 @@ class DeliveryGroupTest(TestCase):
             self.check_delivery_response_match(r.json[i], data[i])
 
     def test_post_deliveries_error_no_name(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -128,7 +124,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_name_not_string(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -143,7 +138,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_no_priority(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -157,7 +151,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_invalid_priority(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -172,7 +165,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 400)
 
     def test_delete_deliveries_empty(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
         r = self.client.delete(self.route)
         self.assertEquals(r.status_code, 200)
@@ -182,7 +174,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.json, [])
 
     def test_delete_deliveries_single(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -201,7 +192,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.json, [])
 
     def test_delete_deliveries_multiple(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -226,7 +216,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.json, [])
 
     def test_post_deliveries_unique_id(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -249,8 +238,6 @@ class DeliveryGroupTest(TestCase):
 
     # Delivery routes
     def test_get_delivery(self):
-        self.route = '/deliveries'
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -273,8 +260,6 @@ class DeliveryGroupTest(TestCase):
         self.check_delivery_response_match(r.json, data[0])
 
     def test_get_delivery_error_invalid_key(self):
-        self.route = '/deliveries'
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -296,8 +281,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_get_delivery_error_key_not_found(self):
-        self.route = '/deliveries'
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -319,7 +302,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_patch_delivery(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -346,7 +328,6 @@ class DeliveryGroupTest(TestCase):
         route = '/delivery/1' #?
 
     def test_patch_delivery_error_invalid_key(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -369,7 +350,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_patch_delivery_error_key_not_found(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{
@@ -392,7 +372,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_delete_delivery(self):
-        self.create_dummy_targets()
         self.client.delete(self.route)
 
         data = [{

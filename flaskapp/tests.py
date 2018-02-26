@@ -273,12 +273,14 @@ class TargetGroupTest(TestCase):
         app.config['TESTING'] = True
         return app
 
+    def setUp(self):
+        self.route = '/targets'
+
     # Targets route
     def test_get_targets_empty(self):
-        route = '/targets'
-        self.client.delete(route)
+        self.client.delete(self.route)
 
-        r = self.client.get(route)
+        r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, [])
 

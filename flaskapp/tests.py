@@ -450,81 +450,75 @@ class RobotGroupTest(TestCase):
         app.config['TESTING'] = True
         return app
 
+    def setUp(self):
+        self.route = '/instructions'
+
     # Instruction routes
     def test_delete_instructions(self):
-        route = '/instructions'
-        r = self.client.delete(route)
+        r = self.client.delete(self.route)
         self.assertEquals(r.status_code, 200)
 
     def test_get_instructions_queue_empty(self):
-        route = '/instructions'
-        self.client.delete(route)
+        self.client.delete(self.route)
 
-        r = self.client.get(route)
+        r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, [])
 
     def test_get_instructions(self):
-        route = '/instructions'
-        self.client.delete(route)
+        self.client.delete(self.route)
 
         data = [{'type': 'MOVE', 'value': 100},
                 {'type': 'TURN', 'value': 90}]
-        self.client.post(route, data = json.dumps(data))
+        self.client.post(self.route, data = json.dumps(data))
 
-        r = self.client.get(route)
+        r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, data)
 
     def test_post_instructions_single(self):
-        route = '/instructions'
-        self.client.delete(route)
+        self.client.delete(self.route)
 
         data = {'type': 'MOVE', 'value': 100}
-        r = self.client.post(route, data = json.dumps(data))
+        r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, [data])
 
     def test_post_instructions_multiple(self):
-        route = '/instructions'
-        self.client.delete(route)
+        self.client.delete(self.route)
 
         data = [{'type': 'MOVE', 'value': 100},
                 {'type': 'TURN', 'value': 90}]
-        r = self.client.post(route, data = json.dumps(data))
+        r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, data)
 
     def test_post_instructions_fails_with_missing_type(self):
-        route = '/instructions'
-        self.client.delete(route)
+        self.client.delete(self.route)
 
         data = [{'value': 100}]
-        r = self.client.post(route, data = json.dumps(data))
+        r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
     def test_post_instructions_fails_with_missing_value(self):
-        route = '/instructions'
-        self.client.delete(route)
+        self.client.delete(self.route)
 
         data = [{'type': 'MOVE'}]
-        r = self.client.post(route, data = json.dumps(data))
+        r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
     def test_post_instructions_fails_with_invalid_type(self):
-        route = '/instructions'
-        self.client.delete(route)
+        self.client.delete(self.route)
 
         data = [{'type': 'HALT', 'value': 100}]
-        r = self.client.post(route, data = json.dumps(data))
+        r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
     def test_post_instructions_fails_with_bad_angle(self):
-        route = '/instructions'
-        self.client.delete(route)
+        self.client.delete(self.route)
 
         data = [{'type': 'TURN', 'value': 190.0}]
-        r = self.client.post(route, data = json.dumps(data))
+        r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
     # Batch instructions route

@@ -39,6 +39,7 @@ class DeliveryGroupTest(TestCase):
                     'from': 1,
                     'to': 2
                     }]
+
     def add_data_multiple(self):
         self.data = [{
             'name': 'Blood sample',
@@ -54,6 +55,10 @@ class DeliveryGroupTest(TestCase):
             'to': 1
         }]
 
+    def check_response_in_range(self, r):
+        for i in range(0, len(r.json)):
+            self.check_delivery_response_match(r.json[i], self.data[i])
+
     # Deliveries route
     def test_get_deliveries_empty(self):
 
@@ -68,8 +73,8 @@ class DeliveryGroupTest(TestCase):
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
-        for i in range(0, len(r.json)):
-            self.check_delivery_response_match(r.json[i], self.data[i])
+        self.check_response_in_range(r)
+
 
     def test_get_deliveries_multiple(self):
 
@@ -79,8 +84,7 @@ class DeliveryGroupTest(TestCase):
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
-        for i in range(0, len(r.json)):
-            self.check_delivery_response_match(r.json[i], self.data[i])
+        self.check_response_in_range(r)
 
     def test_post_deliveries(self):
 
@@ -88,8 +92,7 @@ class DeliveryGroupTest(TestCase):
         r = self.client.post(self.route, data = json.dumps(self.data[0]))
 
         self.assertEquals(r.status_code, 200)
-        for i in range(0, len(r.json)):
-            self.check_delivery_response_match(r.json[i], self.data[i])
+        self.check_response_in_range(r)
 
     def test_post_deliveries_no_description(self):
 
@@ -97,8 +100,7 @@ class DeliveryGroupTest(TestCase):
         r = self.client.post(self.route, data = json.dumps(self.data[0]))
 
         self.assertEquals(r.status_code, 200)
-        for i in range(0, len(r.json)):
-            self.check_delivery_response_match(r.json[i], self.data[i])
+        self.check_response_in_range(r)
 
     def test_post_deliveries_error_no_name(self):
 

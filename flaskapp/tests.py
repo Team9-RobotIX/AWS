@@ -511,11 +511,15 @@ class RobotGroupTest(TestCase):
         r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
+
     # Batch instructions route
-    def test_get_instruction_batch(self):
-        data = [{'type': 'MOVE', 'value': 100},
+    def batch_data(self):
+        return [{'type': 'MOVE', 'value': 100},
                 {'type': 'TURN', 'value': 90},
                 {'type': 'TURN', 'value': -90}]
+
+    def test_get_instruction_batch(self):
+        data = self.batch_data()
         data_correction = {'angle': 10.3}
         self.client.delete('/instructions')
         self.client.delete('/correction')
@@ -529,9 +533,7 @@ class RobotGroupTest(TestCase):
                                    'correction': data_correction})
 
     def test_get_instruction_batch_no_correction(self):
-        data = [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90},
-                {'type': 'TURN', 'value': -90}]
+        data = self.batch_data()
         self.client.delete('/instructions')
         self.client.delete('/correction')
         self.client.post('/instructions', data = json.dumps(data))
@@ -542,9 +544,7 @@ class RobotGroupTest(TestCase):
         self.assertEquals(r.json, {'instructions': data})
 
     def test_get_instruction_batch_limit(self):
-        data = [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90},
-                {'type': 'TURN', 'value': -90}]
+        data = self.batch_data()
         data_correction = {'angle': 10.3}
         self.client.delete('/instructions')
         self.client.delete('/correction')
@@ -570,9 +570,7 @@ class RobotGroupTest(TestCase):
                                    'correction': data_correction})
 
     def test_get_instruction_batch_limit_invalid(self):
-        data = [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90},
-                {'type': 'TURN', 'value': -90}]
+        data = self.batch_data()
         data_correction = {'angle': 10.3}
         self.client.delete('/instructions')
         self.client.delete('/correction')
@@ -589,9 +587,7 @@ class RobotGroupTest(TestCase):
 
     # Instruction routes
     def test_get_instruction(self):
-        data = [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90},
-                {'type': 'TURN', 'value': -90}]
+        data = self.batch_data()
         self.client.delete('/instructions')
         self.client.post('/instructions', data = json.dumps(data))
 
@@ -602,9 +598,7 @@ class RobotGroupTest(TestCase):
             self.assertEquals(r.json, data[i])
 
     def test_get_instruction_invalid_index(self):
-        data = [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90},
-                {'type': 'TURN', 'value': -90}]
+        data = self.batch_data()
         self.client.delete('/instructions')
         self.client.post('/instructions', data = json.dumps(data))
 
@@ -617,9 +611,7 @@ class RobotGroupTest(TestCase):
         self.assertEquals(r.status_code, 404)
 
     def test_delete_instruction(self):
-        data = [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90},
-                {'type': 'TURN', 'value': -90}]
+        data = self.batch_data()
         self.client.delete('/instructions')
         self.client.post('/instructions', data = json.dumps(data))
 
@@ -631,9 +623,7 @@ class RobotGroupTest(TestCase):
         self.assertEquals(s.json, [data[1], data[2]])
 
     def test_delete_instruction_invalid_index(self):
-        data = [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90},
-                {'type': 'TURN', 'value': -90}]
+        data = self.batch_data()
         self.client.delete('/instructions')
         self.client.post('/instructions', data = json.dumps(data))
 

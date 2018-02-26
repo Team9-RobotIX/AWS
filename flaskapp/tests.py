@@ -280,6 +280,13 @@ class TargetGroupTest(TestCase):
         self.client.post(self.route, data = json.dumps(data[0]))
         self.client.post(self.route, data = json.dumps(data[1]))
 
+    def check_in_range_ignoring_id(self, r, data):
+        for i in range(0, len(r.json)):
+            for k, v in data[i].iteritems():
+                # ID assigned by server, so we don't check it
+                if k != 'id':
+                    self.assertEquals(v, data[i][k])
+
     def setUp(self):
         self.route = '/targets'
         self.client.delete(self.route)
@@ -297,11 +304,7 @@ class TargetGroupTest(TestCase):
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
-        for i in range(0, len(r.json)):
-            for k, v in data[i].iteritems():
-                # ID assigned by server, so we don't check it
-                if k != 'id':
-                    self.assertEquals(v, data[i][k])
+        self.check_in_range_ignoring_id(r, data)
 
     def test_get_targets_multiple(self):
         data = [{'name': 'Reception'},
@@ -310,11 +313,7 @@ class TargetGroupTest(TestCase):
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
-        for i in range(0, len(r.json)):
-            for k, v in data[i].iteritems():
-                # ID assigned by server, so we don't check it
-                if k != 'id':
-                    self.assertEquals(v, data[i][k])
+        self.check_in_range_ignoring_id(r, data)
 
     def test_post_targets_name_and_color(self):
         data = [{'name': 'Reception', 'color': 'red'}]
@@ -322,11 +321,7 @@ class TargetGroupTest(TestCase):
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
-        for i in range(0, len(r.json)):
-            for k, v in data[i].itemitems():
-                # ID assigned by server, so we don't check it
-                if k != 'id':
-                    self.assertEquals(v, data[i][k])
+        self.check_in_range_ignoring_id(r, data)
 
     def test_post_targets_name_and_description(self):
         data = [{'name': 'Reception', 'description': 'foo'}]
@@ -334,11 +329,7 @@ class TargetGroupTest(TestCase):
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
-        for i in range(0, len(r.json)):
-            for k, v in data[i].iteritems():
-                # ID assigned by server, so we don't check it
-                if k != 'id':
-                    self.assertEquals(v, data[i][k])
+        self.check_in_range_ignoring_id(r, data)
 
     def test_post_targets_error_name(self):
         data = [{'name': 7}]

@@ -1,5 +1,4 @@
 from flask import Flask, abort, request, jsonify, g
-import heapq
 import dataset
 import shelve
 import copy
@@ -118,7 +117,8 @@ def deliveries_post():
                      data['priority'], data['name'])
 
     h = copy.deepcopy(get_cache()['deliveryQueue'])
-    heapq.heappush(h, [d.priority, counter, d])
+    h.append((d.priority, counter, d))
+    h = sorted(h, key = lambda x: (x[0], x[1]))
 
     get_cache()['deliveryQueueCounter'] += 1
     get_cache()['deliveryQueue'] = h

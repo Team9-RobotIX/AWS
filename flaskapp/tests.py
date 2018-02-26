@@ -55,12 +55,38 @@ class DeliveryGroupTest(TestCase):
             'to': 1
         }]
 
+    def add_data_triple(self):
+        self.data = [{
+            'name': 'Blood sample',
+            'description': 'Blood sample for patient Jane Doe',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }, {
+            'name': 'Papers',
+            'description': 'Patient records',
+            'priority': 1,
+            'from': 2,
+            'to': 1
+        }, {
+            'name': 'Cake',
+            'description': 'This was a triumph',
+            'priority': 0,
+            'from': 2,
+            'to': 1
+        }]
+
     def post_data_single(self):
         return self.client.post(self.route, data = json.dumps(self.data[0]))
 
     def post_data_multiple(self):
         self.client.post(self.route, data = json.dumps(self.data[0]))
         self.client.post(self.route, data = json.dumps(self.data[1]))
+
+    def post_data_triple(self):
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.client.post(self.route, data = json.dumps(self.data[2]))
 
     def check_response_in_range(self, r):
         for i in range(0, len(r.json)):
@@ -93,6 +119,18 @@ class DeliveryGroupTest(TestCase):
         r = self.post_data_single()
         self.assertEquals(r.status_code, 200)
         self.check_response_in_range(r)
+
+    def test_post_deliveries_reordering(self):
+        self.add_data_triple()
+        self.post_data_triple()
+
+        r = self.client.get(self.route)
+        self.assertEquals(r.status_code, 200)
+
+        # Order is 0, 2, 1
+        self.check_delivery_response_match(r.json[0], self.data[0])
+        self.check_delivery_response_match(r.json[1], self.data[2])
+        self.check_delivery_response_match(r.json[2], self.data[1])
 
     def test_post_deliveries_no_description(self):
         self.add_data_single()

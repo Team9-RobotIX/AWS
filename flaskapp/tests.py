@@ -518,11 +518,14 @@ class RobotGroupTest(TestCase):
                 {'type': 'TURN', 'value': 90},
                 {'type': 'TURN', 'value': -90}]
 
+    def delete_instructions_and_corrections(self):
+        self.client.delete('/instructions')
+        self.client.delete('/correction')
+
     def test_get_instruction_batch(self):
         data = self.batch_data()
         data_correction = {'angle': 10.3}
-        self.client.delete('/instructions')
-        self.client.delete('/correction')
+        self.delete_instructions_and_corrections()
         self.client.post('/instructions', data = json.dumps(data))
         self.client.post('/correction', data = json.dumps(data_correction))
 
@@ -534,8 +537,7 @@ class RobotGroupTest(TestCase):
 
     def test_get_instruction_batch_no_correction(self):
         data = self.batch_data()
-        self.client.delete('/instructions')
-        self.client.delete('/correction')
+        self.delete_instructions_and_corrections()
         self.client.post('/instructions', data = json.dumps(data))
 
         route = '/instructions/batch'
@@ -546,8 +548,7 @@ class RobotGroupTest(TestCase):
     def test_get_instruction_batch_limit(self):
         data = self.batch_data()
         data_correction = {'angle': 10.3}
-        self.client.delete('/instructions')
-        self.client.delete('/correction')
+        self.delete_instructions_and_corrections()
         self.client.post('/instructions', data = json.dumps(data))
         self.client.post('/correction', data = json.dumps(data_correction))
 
@@ -572,8 +573,7 @@ class RobotGroupTest(TestCase):
     def test_get_instruction_batch_limit_invalid(self):
         data = self.batch_data()
         data_correction = {'angle': 10.3}
-        self.client.delete('/instructions')
-        self.client.delete('/correction')
+        self.delete_instructions_and_corrections()
         self.client.post('/instructions', data = json.dumps(data))
         self.client.post('/correction', data = json.dumps(data_correction))
 
@@ -586,10 +586,13 @@ class RobotGroupTest(TestCase):
         self.assertEquals(r.status_code, 400)
 
     # Instruction routes
-    def test_get_instruction(self):
-        data = self.batch_data()
+    def delete_and_post_instructions(self, data):
         self.client.delete('/instructions')
         self.client.post('/instructions', data = json.dumps(data))
+
+    def test_get_instruction(self):
+        data = self.batch_data()
+        self.delete_and_post_instructions(data)
 
         for i in range(0, 3):
             route = '/instruction/' + str(i)
@@ -599,8 +602,7 @@ class RobotGroupTest(TestCase):
 
     def test_get_instruction_invalid_index(self):
         data = self.batch_data()
-        self.client.delete('/instructions')
-        self.client.post('/instructions', data = json.dumps(data))
+        self.delete_and_post_instructions(data)
 
         route = '/instruction/-1'
         r = self.client.get(route)
@@ -612,8 +614,7 @@ class RobotGroupTest(TestCase):
 
     def test_delete_instruction(self):
         data = self.batch_data()
-        self.client.delete('/instructions')
-        self.client.post('/instructions', data = json.dumps(data))
+        self.delete_and_post_instructions(data)
 
         route = '/instruction/0'
         r = self.client.delete(route)
@@ -624,8 +625,7 @@ class RobotGroupTest(TestCase):
 
     def test_delete_instruction_invalid_index(self):
         data = self.batch_data()
-        self.client.delete('/instructions')
-        self.client.post('/instructions', data = json.dumps(data))
+        self.delete_and_post_instructions(data)
 
         route = '/instruction/-1'
         r = self.client.delete(route)

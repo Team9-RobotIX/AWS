@@ -55,6 +55,13 @@ class DeliveryGroupTest(TestCase):
             'to': 1
         }]
 
+    def post_data_single(self):
+        return self.client.post(self.route, data = json.dumps(self.data[0]))
+
+    def post_data_multiple(self):
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
+
     def check_response_in_range(self, r):
         for i in range(0, len(r.json)):
             self.check_delivery_response_match(r.json[i], self.data[i])
@@ -68,8 +75,7 @@ class DeliveryGroupTest(TestCase):
 
     def test_get_deliveries_single(self):
         self.add_data_single()
-
-        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.post_data_single()
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
@@ -79,8 +85,7 @@ class DeliveryGroupTest(TestCase):
     def test_get_deliveries_multiple(self):
 
         self.add_data_multiple()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.post_data_multiple()
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
@@ -89,7 +94,7 @@ class DeliveryGroupTest(TestCase):
     def test_post_deliveries(self):
 
         self.add_data_single()
-        r = self.client.post(self.route, data = json.dumps(self.data[0]))
+        r = self.post_data_single()
 
         self.assertEquals(r.status_code, 200)
         self.check_response_in_range(r)
@@ -97,7 +102,7 @@ class DeliveryGroupTest(TestCase):
     def test_post_deliveries_no_description(self):
 
         self.add_data_single()
-        r = self.client.post(self.route, data = json.dumps(self.data[0]))
+        r = self.post_data_single()
 
         self.assertEquals(r.status_code, 200)
         self.check_response_in_range(r)
@@ -106,7 +111,7 @@ class DeliveryGroupTest(TestCase):
 
         self.add_data_single()
         del self.data[0]['name'] #Remove name value from data
-        r = self.client.post(self.route, data = json.dumps(self.data[0]))
+        r = self.post_data_single()
 
         self.assertEquals(r.status_code, 400)
 
@@ -114,7 +119,7 @@ class DeliveryGroupTest(TestCase):
 
         self.add_data_single()
         self.data[0]['name'] = 1 #Set name value to some non-string val
-        r = self.client.post(self.route, data = json.dumps(self.data[0]))
+        r = self.post_data_single()
 
         self.assertEquals(r.status_code, 400)
 
@@ -122,7 +127,7 @@ class DeliveryGroupTest(TestCase):
 
         self.add_data_single()
         del self.data[0]['priority'] #Remove priority value from data
-        r = self.client.post(self.route, data = json.dumps(self.data[0]))
+        r = self.post_data_single()
 
         self.assertEquals(r.status_code, 400)
 
@@ -130,7 +135,7 @@ class DeliveryGroupTest(TestCase):
 
         self.add_data_single()
         self.data[0]['priority'] = None #Set priority value from data to None
-        r = self.client.post(self.route, data = json.dumps(self.data[0]))
+        r = self.post_data_single()
 
         self.assertEquals(r.status_code, 400)
 
@@ -145,7 +150,7 @@ class DeliveryGroupTest(TestCase):
     def test_delete_deliveries_single(self):
 
         self.add_data_single()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.post_data_single()
 
         r = self.client.delete(self.route)
         self.assertEquals(r.status_code, 200)
@@ -157,8 +162,7 @@ class DeliveryGroupTest(TestCase):
     def test_delete_deliveries_multiple(self):
 
         self.add_data_multiple()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.post_data_multiple()
 
         r = self.client.delete(self.route)
         self.assertEquals(r.status_code, 200)
@@ -170,8 +174,7 @@ class DeliveryGroupTest(TestCase):
     def test_post_deliveries_unique_id(self):
 
         self.add_data_multiple()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.post_data_multiple()
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
@@ -181,8 +184,7 @@ class DeliveryGroupTest(TestCase):
     def test_get_delivery(self):
 
         self.add_data_multiple()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.post_data_multiple()
 
         self.route = 'delivery/0'
         r = self.client.get(self.route)
@@ -192,8 +194,7 @@ class DeliveryGroupTest(TestCase):
     def test_get_delivery_error_invalid_key(self):
 
         self.add_data_multiple()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.post_data_multiple()
 
         self.route = '/delivery/a'
         r = self.client.get(self.route)
@@ -202,8 +203,7 @@ class DeliveryGroupTest(TestCase):
     def test_get_delivery_error_key_not_found(self):
 
         self.add_data_multiple()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.post_data_multiple()
 
         self.route = '/delivery/2'
         r = self.client.get(self.route)
@@ -212,8 +212,7 @@ class DeliveryGroupTest(TestCase):
     def test_patch_delivery(self):
 
         self.add_data_multiple()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.post_data_multiple()
 
         self.route = 'delivery/0'
         r = self.client.get(self.route)
@@ -227,8 +226,7 @@ class DeliveryGroupTest(TestCase):
     def test_patch_delivery_error_invalid_key(self):
 
         self.add_data_multiple()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.post_data_multiple()
 
         self.route = '/delivery/foo'
         r = self.client.patch(self.route, data = json.dumps({"state":
@@ -238,8 +236,7 @@ class DeliveryGroupTest(TestCase):
     def test_patch_delivery_error_key_not_found(self):
 
         self.add_data_multiple()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.post_data_multiple()
 
         self.route = '/delivery/2'
         r = self.client.patch(self.route, data = json.dumps({"state":
@@ -249,8 +246,7 @@ class DeliveryGroupTest(TestCase):
     def test_delete_delivery(self):
 
         self.add_data_multiple()
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.post_data_multiple()
 
         self.route = '/delivery/0'
         r = self.client.get(self.route)

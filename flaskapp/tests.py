@@ -276,6 +276,10 @@ class TargetGroupTest(TestCase):
     def post_data_single(self, data):
         return self.client.post(self.route, data = json.dumps(data[0]))
 
+    def post_data_multiple(self, data):
+        self.client.post(self.route, data = json.dumps(data[0]))
+        self.client.post(self.route, data = json.dumps(data[1]))
+
     def setUp(self):
         self.route = '/targets'
         self.client.delete(self.route)
@@ -302,8 +306,7 @@ class TargetGroupTest(TestCase):
     def test_get_targets_multiple(self):
         data = [{'name': 'Reception'},
                 {'name': 'Pharmacy', 'description': 'foo'}]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+        self.post_data_multiple(data)
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)

@@ -116,6 +116,41 @@ class DeliveryGroupTest(TestCase):
         for i in range(0, len(r.json)):
             self.check_delivery_response_match(r.json[i], data[i])
 
+    def test_post_deliveries_multiple_reordering(self):
+        route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(route)
+
+        data = [{
+            'name': 'Blood sample',
+            'description': 'Blood sample for patient Jane Doe',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }, {
+            'name': 'Papers',
+            'description': 'Patient records',
+            'priority': 1,
+            'from': 2,
+            'to': 1
+        }, {
+            'name': 'Cake',
+            'description': 'This was a triumph - huge success!',
+            'priority': 0,
+            'from': 2,
+            'to': 1
+        }]
+        self.client.post(route, data = json.dumps(data[0]))
+        self.client.post(route, data = json.dumps(data[1]))
+        self.client.post(route, data = json.dumps(data[2]))
+
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        # Correct order is 0, 2, 1
+        self.check_delivery_response_match(r.json[0], data[0])
+        self.check_delivery_response_match(r.json[1], data[2])
+        self.check_delivery_response_match(r.json[2], data[1])
+
     def test_post_deliveries_error_no_name(self):
         route = '/deliveries'
         self.create_dummy_targets()

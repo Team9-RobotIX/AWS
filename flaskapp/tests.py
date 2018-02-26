@@ -199,7 +199,6 @@ class DeliveryGroupTest(TestCase):
         r = self.client.patch(self.route, data = json.dumps({"state":
                                                         "IN_PROGRESS"}))
         self.assertEquals(r.status_code, 200)
-        route = '/delivery/1' #?
 
     def test_patch_delivery_error_invalid_key(self):
         self.add_data_multiple()

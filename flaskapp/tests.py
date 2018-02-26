@@ -31,32 +31,16 @@ class DeliveryGroupTest(TestCase):
         self.create_dummy_targets()
         self.client.delete(self.route)
 
-    # Deliveries route
-    def test_get_deliveries_empty(self):
-
-        r = self.client.get(self.route)
-        self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, [])
-
-    def test_get_deliveries_single(self):
-
-        data = [{
-            'name': 'Blood sample',
-            'description': 'Blood sample for patient Jane Doe',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-
-        r = self.client.get(self.route)
-        self.assertEquals(r.status_code, 200)
-        for i in range(0, len(r.json)):
-            self.check_delivery_response_match(r.json[i], data[i])
-
-    def test_get_deliveries_multiple(self):
-
-        data = [{
+    def add_data_single(self):
+        self.data = [{
+                    'name': 'Blood sample',
+                    'description': 'Blood sample for patient Jane Doe',
+                    'priority': 0,
+                    'from': 1,
+                    'to': 2
+                    }]
+    def add_data_multiple(self):
+        self.data = [{
             'name': 'Blood sample',
             'description': 'Blood sample for patient Jane Doe',
             'priority': 0,
@@ -69,90 +53,82 @@ class DeliveryGroupTest(TestCase):
             'from': 2,
             'to': 1
         }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+
+    # Deliveries route
+    def test_get_deliveries_empty(self):
+
+        r = self.client.get(self.route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, [])
+
+    def test_get_deliveries_single(self):
+        self.add_data_single()
+
+        self.client.post(self.route, data = json.dumps(self.data[0]))
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         for i in range(0, len(r.json)):
-            self.check_delivery_response_match(r.json[i], data[i])
+            self.check_delivery_response_match(r.json[i], self.data[i])
+
+    def test_get_deliveries_multiple(self):
+
+        self.add_data_multiple()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
+
+        r = self.client.get(self.route)
+        self.assertEquals(r.status_code, 200)
+        for i in range(0, len(r.json)):
+            self.check_delivery_response_match(r.json[i], self.data[i])
 
     def test_post_deliveries(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'description': 'Blood sample for patient Jane Doe',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }]
-        r = self.client.post(self.route, data = json.dumps(data[0]))
+        self.add_data_single()
+        r = self.client.post(self.route, data = json.dumps(self.data[0]))
 
         self.assertEquals(r.status_code, 200)
         for i in range(0, len(r.json)):
-            self.check_delivery_response_match(r.json[i], data[i])
+            self.check_delivery_response_match(r.json[i], self.data[i])
 
     def test_post_deliveries_no_description(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }]
-        r = self.client.post(self.route, data = json.dumps(data[0]))
+        self.add_data_single()
+        r = self.client.post(self.route, data = json.dumps(self.data[0]))
 
         self.assertEquals(r.status_code, 200)
         for i in range(0, len(r.json)):
-            self.check_delivery_response_match(r.json[i], data[i])
+            self.check_delivery_response_match(r.json[i], self.data[i])
 
     def test_post_deliveries_error_no_name(self):
 
-        data = [{
-            'description': 'Blood sample for patient Jane Doe',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }]
-        r = self.client.post(self.route, data = json.dumps(data[0]))
+        self.add_data_single()
+        del self.data[0]['name'] #Remove name value from data
+        r = self.client.post(self.route, data = json.dumps(self.data[0]))
 
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_name_not_string(self):
 
-        data = [{
-            'name': None,
-            'description': 'Blood sample for patient',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }]
-        r = self.client.post(self.route, data = json.dumps(data[0]))
+        self.add_data_single()
+        self.data[0]['name'] = 1 #Set name value to some non-string val
+        r = self.client.post(self.route, data = json.dumps(self.data[0]))
 
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_no_priority(self):
 
-        data = [{
-            'name': 'Random name',
-            'description': 'Blood sample for patient',
-            'from': 1,
-            'to': 2
-        }]
-        r = self.client.post(self.route, data = json.dumps(data[0]))
+        self.add_data_single()
+        del self.data[0]['priority'] #Remove priority value from data
+        r = self.client.post(self.route, data = json.dumps(self.data[0]))
 
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_invalid_priority(self):
 
-        data = [{
-            'name': 'Random name',
-            'description': 'Blood sample for patient',
-            'priority': None,
-            'from': 1,
-            'to': 2
-        }]
-        r = self.client.post(self.route, data = json.dumps(data[0]))
+        self.add_data_single()
+        self.data[0]['priority'] = None #Set priority value from data to None
+        r = self.client.post(self.route, data = json.dumps(self.data[0]))
 
         self.assertEquals(r.status_code, 400)
 
@@ -166,13 +142,8 @@ class DeliveryGroupTest(TestCase):
 
     def test_delete_deliveries_single(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
+        self.add_data_single()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
 
         r = self.client.delete(self.route)
         self.assertEquals(r.status_code, 200)
@@ -183,19 +154,9 @@ class DeliveryGroupTest(TestCase):
 
     def test_delete_deliveries_multiple(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }, {
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+        self.add_data_multiple()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
 
         r = self.client.delete(self.route)
         self.assertEquals(r.status_code, 200)
@@ -206,19 +167,9 @@ class DeliveryGroupTest(TestCase):
 
     def test_post_deliveries_unique_id(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }, {
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+        self.add_data_multiple()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
 
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
@@ -227,40 +178,20 @@ class DeliveryGroupTest(TestCase):
     # Delivery routes
     def test_get_delivery(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }, {
-            'name': 'Cookie',
-            'priority': 2,
-            'from': 2,
-            'to': 1
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+        self.add_data_multiple()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
 
         self.route = 'delivery/0'
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
-        self.check_delivery_response_match(r.json, data[0])
+        self.check_delivery_response_match(r.json, self.data[0])
 
     def test_get_delivery_error_invalid_key(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }, {
-            'name': 'Cookie',
-            'priority': 2,
-            'from': 2,
-            'to': 1
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+        self.add_data_multiple()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
 
         self.route = '/delivery/a'
         r = self.client.get(self.route)
@@ -268,19 +199,9 @@ class DeliveryGroupTest(TestCase):
 
     def test_get_delivery_error_key_not_found(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }, {
-            'name': 'Cookie',
-            'priority': 2,
-            'from': 2,
-            'to': 1
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+        self.add_data_multiple()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
 
         self.route = '/delivery/2'
         r = self.client.get(self.route)
@@ -288,19 +209,9 @@ class DeliveryGroupTest(TestCase):
 
     def test_patch_delivery(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }, {
-            'name': 'Cookie',
-            'priority': 2,
-            'from': 2,
-            'to': 1
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+        self.add_data_multiple()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
 
         self.route = 'delivery/0'
         r = self.client.get(self.route)
@@ -313,19 +224,9 @@ class DeliveryGroupTest(TestCase):
 
     def test_patch_delivery_error_invalid_key(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }, {
-            'name': 'Cookie',
-            'priority': 2,
-            'from': 2,
-            'to': 1
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+        self.add_data_multiple()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
 
         self.route = '/delivery/foo'
         r = self.client.patch(self.route, data = json.dumps({"state":
@@ -334,19 +235,9 @@ class DeliveryGroupTest(TestCase):
 
     def test_patch_delivery_error_key_not_found(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }, {
-            'name': 'Cookie',
-            'priority': 2,
-            'from': 2,
-            'to': 1
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+        self.add_data_multiple()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
 
         self.route = '/delivery/2'
         r = self.client.patch(self.route, data = json.dumps({"state":
@@ -355,19 +246,9 @@ class DeliveryGroupTest(TestCase):
 
     def test_delete_delivery(self):
 
-        data = [{
-            'name': 'Blood sample',
-            'priority': 0,
-            'from': 1,
-            'to': 2
-        }, {
-            'name': 'Cookie',
-            'priority': 2,
-            'from': 2,
-            'to': 1
-        }]
-        self.client.post(self.route, data = json.dumps(data[0]))
-        self.client.post(self.route, data = json.dumps(data[1]))
+        self.add_data_multiple()
+        self.client.post(self.route, data = json.dumps(self.data[0]))
+        self.client.post(self.route, data = json.dumps(self.data[1]))
 
         self.route = '/delivery/0'
         r = self.client.get(self.route)

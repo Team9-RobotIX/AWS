@@ -454,6 +454,12 @@ class RobotGroupTest(TestCase):
         self.route = '/instructions'
         self.client.delete(self.route)
 
+    def data_double(self):
+        return [{'type': 'MOVE', 'value': 100}, {'type': 'TURN', 'value': 90}]
+
+    def data_single(self):
+        return {'type': 'MOVE', 'value': 100}
+
 
     # Instruction routes
     def test_delete_instructions(self):
@@ -466,8 +472,7 @@ class RobotGroupTest(TestCase):
         self.assertEquals(r.json, [])
 
     def test_get_instructions(self):
-        data = [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90}]
+        data = self.data_double()
         self.client.post(self.route, data = json.dumps(data))
 
         r = self.client.get(self.route)
@@ -475,14 +480,13 @@ class RobotGroupTest(TestCase):
         self.assertEquals(r.json, data)
 
     def test_post_instructions_single(self):
-        data = {'type': 'MOVE', 'value': 100}
+        data = self.data_single()
         r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, [data])
 
     def test_post_instructions_multiple(self):
-        data = [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90}]
+        data = self.data_double()
         r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, data)

@@ -1,7 +1,9 @@
-from flask import Flask, abort, request, jsonify, g
+from flask import Flask, request, jsonify, g
 import dataset
 import shelve
 import copy
+import random
+import string
 from flask_bcrypt import Bcrypt
 from classes import Delivery, Instruction, Target, DeliveryState
 from encoder import CustomJSONEncoder
@@ -28,6 +30,11 @@ def get_cache():
     return g.cache
 
 
+def generate_token():
+    return ''.join([random.choice(string.ascii_letters + string.digits)
+                    for n in range(32)])
+
+
 @app.teardown_appcontext
 def close_cache(error):
     if hasattr(g, 'cache'):
@@ -35,34 +42,45 @@ def close_cache(error):
 
 
 # Reads the stored values and outputs them.
-@app.route('/login', methods = ['GET', 'POST'])
+@app.route('/login', methods = ['POST'])
 def login():
-    username = request.values.get('username')
-    password = request.values.get('password')
+    data = request.get_json(force=True)
+    if 'username' not in data:
+        return bad_request("Missing username")
+    if 'password' not in data:
+        return bad_request("Missing password")
+
+    username = data['username']
+    password = data['password']
 
     usersTable = get_db()['users']
     user = usersTable.find_one(username=username)
-
     if(user):
         if(bcrypt.check_password_hash(user['password'], password)):
-            return (str(username) + " " + str(password) +
-                    " token: TOKEN_PLACEHOLDER")
+            token = generate_token()
+            return jsonify({'bearer': token})
 
-    abort(401)
+    return unauthorized("No such username/password combination")
 
 
-@app.route('/register', methods = ['GET', 'POST'])
+@app.route('/register', methods = ['POST'])
 def register():
-    username = request.values.get('username')
-    password = request.values.get('password')
+    data = request.get_json(force=True)
+    if 'username' not in data:
+        return bad_request("Missing username")
+    if 'password' not in data:
+        return bad_request("Missing password")
+
+    username = data['username']
+    password = data['password']
     hashedPassword = bcrypt.generate_password_hash(password)
 
     usersTable = get_db()['users']
     if(username and password and len(username) > 0 and len(password) > 0):
         usersTable.insert(dict(username=username, password=hashedPassword))
-        return str(username) + " added"
+        return ''
     else:
-        return "invalid username/password"
+        return bad_request("Invalid username/password")
 
 
 #                                            #
@@ -434,6 +452,19 @@ def lock_post():
 def bad_request(friendly):
     error_code = 400
     error = 'Bad request'
+
+    data = {
+        'code': error_code,
+        'error': error,
+        'friendly':  friendly
+    }
+
+    return jsonify(data), error_code
+
+
+def unauthorized(friendly):
+    error_code = 401
+    error = 'Unauthorized access'
 
     data = {
         'code': error_code,

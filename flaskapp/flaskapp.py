@@ -30,9 +30,14 @@ def get_cache():
     return g.cache
 
 
-def generate_token():
+def generate_bearer_token():
     return ''.join([random.choice(string.ascii_letters + string.digits)
                     for n in range(32)])
+
+
+def generate_challenge_token():
+    return ''.join([random.choice(string.ascii_letters + string.digits)
+                    for n in range(10)])
 
 
 class InvalidBearerException(Exception):
@@ -79,7 +84,7 @@ def login():
     user = usersTable.find_one(username=username)
     if(user):
         if(bcrypt.check_password_hash(user['password'], password)):
-            token = generate_token()
+            token = generate_bearer_token()
             usersTable.update({"username": username, "bearer": token},
                               ['username'])
             return jsonify({'bearer': token})
@@ -221,6 +226,11 @@ def delivery_get(id):
 
 @app.route('/delivery/<int:id>', methods = ['PATCH'])
 def delivery_patch(id):
+    data = request.get_json(force=True)
+    return patch_delivery_with_json(id, data)
+
+
+def patch_delivery_with_json(id, data):
     if 'deliveryQueue' not in get_cache():
         get_cache()['deliveryQueue'] = []
 
@@ -236,7 +246,6 @@ def delivery_patch(id):
     if index < 0:
         return file_not_found("There's no delivery with that ID!")
 
-    data = request.get_json(force=True)
     if 'state' not in data:
         return bad_request("Missing state")
     if data['state'] not in [e.name for e in DeliveryState]:
@@ -426,12 +435,16 @@ def instructions_batch_get():
 
     instructions = get_cache()['instructions'][:limit]
 
+    response = {}
+    response['instructions'] = instructions
+
     if 'correction' in get_cache():
-        correction = {'angle': get_cache()['correction']}
-        return jsonify({'instructions': instructions,
-                        'correction': correction})
-    else:
-        return jsonify({'instructions': instructions})
+        response['correction'] = {'angle': get_cache()['correction']}
+
+    if 'challenge_token' in get_cache():
+        response['token'] = get_cache()['challenge_token']
+
+    return jsonify(response)
 
 
 # Instruction routes
@@ -512,6 +525,51 @@ def lock_post():
     get_cache()['locked'] = data['locked']
 
     return jsonify({'locked': get_cache()['locked']})
+
+
+# Verify routes
+@app.route('/verify', methods = ['POST'])
+def verify_post():
+    data = request.get_json(force=True)
+
+    if 'token' not in data:
+        return bad_request("Must supply a challenge token")
+    elif not isinstance(data['token'], basestring):         # NOQA
+        return bad_request("Challenge token must be string")
+
+    try:
+        username = get_username(request.headers)
+    except InvalidBearerException as e:
+        return unauthorized(e.message)
+
+    if data['token'] != get_cache()['challenge_token']:
+        return unauthorized("Challenge token doesn't match QR")
+
+    delivery = None
+    delivery_id = -1
+    for d in get_cache()['deliveryQueue']:
+        if (d[2].state == DeliveryState.AWAITING_AUTHENTICATION_SENDER or
+                d[2].state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER):
+            delivery = d[2]
+            delivery_id = d[1]
+            break
+
+    if delivery_id < 0:
+        return bad_request("No deliveries awaiting authentication")
+
+    if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
+        if delivery.sender == username:
+            del get_cache()['challenge_token']
+            patch_delivery_with_json(delivery_id, {"state": "AWAITING_PACKAGE_LOAD"})
+            return ''
+
+    if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
+        if delivery.receiver == username:
+            del get_cache()['challenge_token']
+            patch_delivery_with_json(delivery_id, {"state": "AWAITING_PACKAGE_RETRIEVAL"})
+            return ''
+
+    return unauthorized("You are not allowed to open the box!")
 
 
 # Used if there is an error in the application.

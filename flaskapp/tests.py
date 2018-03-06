@@ -719,7 +719,11 @@ class RobotGroupTest(TestCase):
         route = '/instructions/batch'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, {'instructions': data,
+
+        resjson = r.json
+        if 'token' in resjson:
+            del resjson['token']
+        self.assertEquals(resjson, {'instructions': data,
                                    'correction': data_correction})
 
     def test_get_instruction_batch_no_correction(self):
@@ -730,7 +734,12 @@ class RobotGroupTest(TestCase):
         route = '/instructions/batch'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, {'instructions': data})
+
+        resjson = r.json
+        if 'token' in resjson:
+            del resjson['token']
+
+        self.assertEquals(resjson, {'instructions': data})
 
     def test_get_instruction_batch_limit(self):
         data = self.batch_data()
@@ -742,19 +751,31 @@ class RobotGroupTest(TestCase):
         route = '/instructions/batch?limit=2'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, {'instructions': data[0:2],
+
+        resjson = r.json
+        if 'token' in resjson:
+            del resjson['token']
+        self.assertEquals(resjson, {'instructions': data[0:2],
                                    'correction': data_correction})
 
         route = '/instructions/batch?limit=3'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, {'instructions': data,
+
+        resjson = r.json
+        if 'token' in resjson:
+            del resjson['token']
+        self.assertEquals(resjson, {'instructions': data,
                                    'correction': data_correction})
 
         route = '/instructions/batch?limit=10'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, {'instructions': data,
+
+        resjson = r.json
+        if 'token' in resjson:
+            del resjson['token']
+        self.assertEquals(resjson, {'instructions': data,
                                    'correction': data_correction})
 
     def test_get_instruction_batch_limit_invalid(self):

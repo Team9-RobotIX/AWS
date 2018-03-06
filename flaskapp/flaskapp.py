@@ -227,8 +227,13 @@ def delivery_patch(id):
     if 'deliveryQueue' not in get_cache():
         get_cache()['deliveryQueue'] = []
 
-    item = [x[2] for x in get_cache()['deliveryQueue'] if x[1] == id]
-    if len(item) <= 0:
+    index = -1
+    for idx, d in enumerate(get_cache()['deliveryQueue']):
+        if d[1] == id:
+            index = idx
+            break
+
+    if index < 0:
         return file_not_found("There's no delivery with that ID!")
 
     data = request.get_json(force=True)
@@ -237,7 +242,15 @@ def delivery_patch(id):
     if data['state'] not in [e.name for e in DeliveryState]:
         return bad_request("Invalid state")
 
-    item[0].state = DeliveryState[data['state']]
+    new = copy.deepcopy(get_cache()['deliveryQueue'])
+    new[index][2].state = DeliveryState[data['state']]
+
+    if new[index][2].state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
+        get_cache()['challenge_token'] = generate_challenge_token()
+    if new[index][2].state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
+        get_cache()['challenge_token'] = generate_challenge_token()
+
+    get_cache()['deliveryQueue'] = new
     return delivery_get(id)
 
 

@@ -379,6 +379,7 @@ class DeliveryGroupTest(TestCase):
         r = self.client.patch(self.route, data = json.dumps(
             {"state": "MOVING_TO_SOURCE"}))
         self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json['state'], 'MOVING_TO_SOURCE')
 
     def test_patch_delivery_invalid_state(self):
         self.add_data_multiple()

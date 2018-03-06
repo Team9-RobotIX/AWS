@@ -66,6 +66,13 @@ class LoginGroupTest(TestCase):
 
         self.assertNotEquals(bearer1, bearer2)
 
+    def test_post_login_fail_wrong_combination(self):
+        self.register_foo()
+        data = {'username': 'INEXISTENTUSER',
+                'password': 'WRONGPASSWORD'}
+        r = self.client.post(self.loginRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 401)
+
     def test_post_login_fail_no_username(self):
         self.register_foo()
         data = {'password': 'bar'}

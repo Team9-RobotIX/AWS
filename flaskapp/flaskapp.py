@@ -35,6 +35,28 @@ def generate_token():
                     for n in range(32)])
 
 
+class InvalidBearerException(Exception):
+    pass
+
+
+def get_username(headers):
+    if 'Authorization' not in headers:
+        raise InvalidBearerException("No Authorization header found.")
+    if not headers['Authorization'].startswith("Bearer "):
+        raise InvalidBearerException("Authorization method must be bearer.")
+    if len(headers['Authorization'][7:]) != 32:
+        raise InvalidBearerException("Bearer token invalid.")
+
+    bearer = headers['Authorization'][7:]
+    usersTable = get_db()['users']
+    user = usersTable.find_one(bearer=bearer)
+
+    if user is None:
+        raise InvalidBearerException("This bearer token is invalid.")
+
+    return user['username']
+
+
 @app.teardown_appcontext
 def close_cache(error):
     if hasattr(g, 'cache'):
@@ -58,6 +80,8 @@ def login():
     if(user):
         if(bcrypt.check_password_hash(user['password'], password)):
             token = generate_token()
+            usersTable.update({"username": username, "bearer": token},
+                              ['username'])
             return jsonify({'bearer': token})
 
     return unauthorized("No such username/password combination")
@@ -76,8 +100,13 @@ def register():
     hashedPassword = bcrypt.generate_password_hash(password)
 
     usersTable = get_db()['users']
+    user = usersTable.find_one(username=username)
+    if user is not None:
+        return bad_request("This username is already taken.")
+
     if(username and password and len(username) > 0 and len(password) > 0):
-        usersTable.insert(dict(username=username, password=hashedPassword))
+        usersTable.insert(dict(username=username, password=hashedPassword,
+                               bearer=''))
         return ''
     else:
         return bad_request("Invalid username/password")
@@ -116,10 +145,20 @@ def deliveries_post():
         return bad_request("Must provide a priority")
     if not isinstance(data['priority'], int):
         return bad_request("Priority must be integer")
+    if 'sender' not in data or 'receiver' not in data:
+        return bad_request("Must provide both a sender and a receiver")
+    if (not isinstance(data['sender'], basestring) or       # NOQA
+            not isinstance(data['receiver'], basestring)):  # NOQA
+        return bad_request("Must provide both a sender and a receiver")
 
     targetsTable = get_db()['targets']
     fromTarget = targetsTable.find_one(id=data['from'])
     toTarget = targetsTable.find_one(id=data['to'])
+
+    try:
+        username = get_username(request.headers)
+    except InvalidBearerException as e:
+        return unauthorized(e.message)
 
     if fromTarget is None:
         return bad_request("From target doesn't exist")
@@ -127,12 +166,26 @@ def deliveries_post():
     if toTarget is None:
         return bad_request("To target doesn't exist")
 
+    usersTable = get_db()['users']
+    senderUser = usersTable.find_one(username=data['sender'])
+    receiverUser = usersTable.find_one(username=data['receiver'])
+
+    if data['sender'] != username:
+        return bad_request("Sender has to be logged in user.")
+
+    if senderUser is None:
+        return bad_request("Sender user doesn't exist")
+
+    if receiverUser is None:
+        return bad_request("Receiver user doesn't exist")
+
     if 'description' in data:
-        d = Delivery(counter, fromTarget, toTarget,
-                     data['priority'], data['name'], data['description'])
+        d = Delivery(counter, fromTarget, toTarget, data['sender'],
+                     data['receiver'], data['priority'], data['name'],
+                     data['description'])
     else:
-        d = Delivery(counter, fromTarget, toTarget,
-                     data['priority'], data['name'])
+        d = Delivery(counter, fromTarget, toTarget, data['sender'],
+                     data['receiver'], data['priority'], data['name'])
 
     h = copy.deepcopy(get_cache()['deliveryQueue'])
     h.append((d.priority, counter, d))

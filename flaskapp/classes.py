@@ -4,23 +4,32 @@ from enum import Enum
 # A delivery contains packages
 class DeliveryState(Enum):
     IN_QUEUE = 0,
-    IN_PROGRESS = 1,
-    AWAITING_AUTHENTICATION = 2,
-    AWAITING_PICKUP = 3,
-    COMPLETED = 4,
+    MOVING_TO_SOURCE = 1,
+    AWAITING_AUTHENTICATION_SENDER = 2,
+    AWAITING_PACKAGE_LOAD = 3,
+    PACKAGE_LOAD_COMPLETE = 4,
+    MOVING_TO_DESTINATION = 6,
+    AWAITING_AUTHENTICATION_RECEIVER = 7,
+    AWAITING_PACKAGE_RETRIEVAL = 8,
+    PACKAGE_RETRIEVAL_COMPLETE = 9,
+    COMPLETE = 10,
+
     UNKNOWN = 5
 
 
 class Delivery:
-    def __init__(self, id, fromTarget, toTarget, priority, name, description = None,
-                 state = DeliveryState.UNKNOWN, minTemp = None,
-                 maxTemp = None, timeLimit = None):
+    def __init__(self, id, fromTarget, toTarget, sender, receiver,
+                 priority, name, description = None,
+                 state = DeliveryState.IN_QUEUE,
+                 minTemp = None, maxTemp = None, timeLimit = None):
         self.id = id
         self.fromTarget = fromTarget
         self.toTarget = toTarget
         self.name = name
         self.description = description
         self.priority = priority
+        self.sender = sender
+        self.receiver = receiver
 
         self.state = state
         self.minTemp = minTemp

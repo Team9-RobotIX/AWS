@@ -18,6 +18,14 @@ class LoginGroupTest(TestCase):
         db = dataset.connect(self.app.config['DATASET_DATABASE_URI'])
         db['users'].drop()
 
+    def setUp(self):
+        self.clear_database()
+
+    def register_foo(self):
+        data = {'username': 'foo',
+                'password': 'bar'}
+        self.client.post(self.registerRoute, data = json.dumps(data))
+
     # Register route
     def test_post_register(self):
         data = {'username': 'foo',
@@ -43,6 +51,7 @@ class LoginGroupTest(TestCase):
 
     # Login route
     def test_post_login(self):
+        self.register_foo()
         data = {'username': 'foo',
                 'password': 'bar'}
         r = self.client.post(self.loginRoute, data = json.dumps(data))
@@ -58,16 +67,19 @@ class LoginGroupTest(TestCase):
         self.assertNotEquals(bearer1, bearer2)
 
     def test_post_login_fail_no_username(self):
+        self.register_foo()
         data = {'password': 'bar'}
         r = self.client.post(self.loginRoute, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
     def test_post_login_fail_no_password(self):
+        self.register_foo()
         data = {'password': 'bar'}
         r = self.client.post(self.loginRoute, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
     def test_post_login_fail_empty(self):
+        self.register_foo()
         data = {}
         r = self.client.post(self.loginRoute, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)

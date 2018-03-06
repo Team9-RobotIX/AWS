@@ -122,12 +122,12 @@ class DeliveryGroupTest(TestCase):
 
     def add_data_single(self):
         self.data = [{
-                    'name': 'Blood sample',
-                    'description': 'Blood sample for patient Jane Doe',
-                    'priority': 0,
-                    'from': 1,
-                    'to': 2
-                    }]
+            'name': 'Blood sample',
+            'description': 'Blood sample for patient Jane Doe',
+            'priority': 0,
+            'from': 1,
+            'to': 2
+        }]
 
     def add_data_multiple(self):
         self.data = [{
@@ -195,7 +195,6 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
         self.check_response_in_range(r)
 
-
     def test_get_deliveries_multiple(self):
         self.add_data_multiple()
         self.post_data_multiple()
@@ -229,25 +228,25 @@ class DeliveryGroupTest(TestCase):
 
     def test_post_deliveries_error_no_name(self):
         self.add_data_single()
-        del self.data[0]['name'] #Remove name value from data
+        del self.data[0]['name']
         r = self.post_data_single()
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_name_not_string(self):
         self.add_data_single()
-        self.data[0]['name'] = 1 #Set name value to some non-string val
+        self.data[0]['name'] = 1
         r = self.post_data_single()
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_no_priority(self):
         self.add_data_single()
-        del self.data[0]['priority'] #Remove priority value from data
+        del self.data[0]['priority']
         r = self.post_data_single()
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_invalid_priority(self):
         self.add_data_single()
-        self.data[0]['priority'] = None #Set priority value from data to None
+        self.data[0]['priority'] = None
         r = self.post_data_single()
         self.assertEquals(r.status_code, 400)
 
@@ -323,8 +322,8 @@ class DeliveryGroupTest(TestCase):
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json['state'], 'UNKNOWN')
-        r = self.client.patch(self.route, data = json.dumps({"state":
-                                                        "IN_PROGRESS"}))
+        r = self.client.patch(self.route, data = json.dumps(
+            {"state": "IN_PROGRESS"}))
         self.assertEquals(r.status_code, 200)
 
     def test_patch_delivery_error_invalid_key(self):
@@ -332,8 +331,8 @@ class DeliveryGroupTest(TestCase):
         self.post_data_multiple()
 
         self.route = '/delivery/foo'
-        r = self.client.patch(self.route, data = json.dumps({"state":
-                                                        "IN_PROGRESS"}))
+        r = self.client.patch(self.route, data = json.dumps(
+            {"state": "IN_PROGRESS"}))
         self.assertEquals(r.status_code, 404)
 
     def test_patch_delivery_error_key_not_found(self):
@@ -341,8 +340,8 @@ class DeliveryGroupTest(TestCase):
         self.post_data_multiple()
 
         self.route = '/delivery/2'
-        r = self.client.patch(self.route, data = json.dumps({"state":
-                                                        "IN_PROGRESS"}))
+        r = self.client.patch(self.route, data = json.dumps(
+            {"state": "IN_PROGRESS"}))
         self.assertEquals(r.status_code, 404)
 
     def test_delete_delivery(self):
@@ -447,9 +446,7 @@ class TargetGroupTest(TestCase):
         r = self.post_data_single(data)
         self.assertEquals(r.status_code, 400)
 
-
     # Target route
-
     def check_repsonse_in_range(self, r, data, index):
         for k, v in data[index].iteritems():
             self.assertEquals(v, r.json[k])
@@ -490,7 +487,6 @@ class TargetGroupTest(TestCase):
         route = '/target/a'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 404)
-
 
     def test_patch_target(self):
         data = self.get_default_data()
@@ -586,7 +582,6 @@ class RobotGroupTest(TestCase):
     def data_single(self):
         return {'type': 'MOVE', 'value': 100}
 
-
     # Instruction routes
     def test_delete_instructions(self):
         r = self.client.delete(self.route)
@@ -636,7 +631,6 @@ class RobotGroupTest(TestCase):
         data = [{'type': 'TURN', 'value': 190.0}]
         r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
-
 
     # Batch instructions route
     def batch_data(self):

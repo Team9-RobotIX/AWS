@@ -341,7 +341,6 @@ class DeliveryGroupTest(TestCase):
         r = self.client.post(self.route, data = json.dumps(self.data[0]),
                              headers = {'Authorization': 'Bearer VOID'})
         self.assertEquals(r.status_code, 401)
-        self.check_response_in_range(r)
 
     # Delivery routes
     def test_get_delivery(self):

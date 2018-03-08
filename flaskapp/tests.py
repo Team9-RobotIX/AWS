@@ -2,12 +2,136 @@ from flask_testing import TestCase
 import json
 import unittest
 import flaskapp
+import dataset
+
+
+class LoginGroupTest(TestCase):
+    def create_app(self):
+        self.app = flaskapp.app
+        self.registerRoute = '/register'
+        self.loginRoute = '/login'
+        self.app.config['TESTING'] = True
+        self.app.config['DATASET_DATABASE_URI'] = 'sqlite:///testdb.db'
+        return self.app
+
+    def clear_database(self):
+        db = dataset.connect(self.app.config['DATASET_DATABASE_URI'])
+        db['users'].drop()
+
+    def setUp(self):
+        self.clear_database()
+
+    def register_foo(self):
+        data = {'username': 'foo',
+                'password': 'bar'}
+        self.client.post(self.registerRoute, data = json.dumps(data))
+
+    # Register route
+    def test_post_register(self):
+        data = {'username': 'foo',
+                'password': 'bar'}
+        r = self.client.post(self.registerRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.data, '')
+
+    def test_post_register_fail_already_exists(self):
+        data = {'username': 'foo',
+                'password': 'bar'}
+        r = self.client.post(self.registerRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 200)
+        r = self.client.post(self.registerRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_register_fail_no_username(self):
+        data = {'password': 'bar'}
+        r = self.client.post(self.registerRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_register_fail_no_password(self):
+        data = {'password': 'bar'}
+        r = self.client.post(self.registerRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_register_fail_empty(self):
+        data = {}
+        r = self.client.post(self.registerRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    # Login route
+    def test_post_login(self):
+        self.register_foo()
+        data = {'username': 'foo',
+                'password': 'bar'}
+        r = self.client.post(self.loginRoute, data = json.dumps(data))
+        bearer1 = r.json['bearer']
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(len(bearer1), 32)
+
+        r = self.client.post(self.loginRoute, data = json.dumps(data))
+        bearer2 = r.json['bearer']
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(len(bearer2), 32)
+
+        self.assertNotEquals(bearer1, bearer2)
+
+    def test_post_login_fail_wrong_combination(self):
+        self.register_foo()
+        data = {'username': 'INEXISTENTUSER',
+                'password': 'WRONGPASSWORD'}
+        r = self.client.post(self.loginRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 401)
+
+    def test_post_login_fail_no_username(self):
+        self.register_foo()
+        data = {'password': 'bar'}
+        r = self.client.post(self.loginRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_login_fail_no_password(self):
+        self.register_foo()
+        data = {'password': 'bar'}
+        r = self.client.post(self.loginRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_login_fail_empty(self):
+        self.register_foo()
+        data = {}
+        r = self.client.post(self.loginRoute, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
 
 class DeliveryGroupTest(TestCase):
     def create_app(self):
-        app = flaskapp.app
-        app.config['TESTING'] = True
-        return app
+        self.app = flaskapp.app
+        self.registerRoute = '/register'
+        self.loginRoute = '/login'
+        self.verifyRoute = '/verify'
+        self.app.config['TESTING'] = True
+        self.app.config['DATASET_DATABASE_URI'] = 'sqlite:///testdb.db'
+        return self.app
+
+    def clear_database(self):
+        db = dataset.connect(self.app.config['DATASET_DATABASE_URI'])
+        db['users'].drop()
+
+    def setUp(self):
+        self.clear_database()
+        self.route = '/deliveries'
+        self.create_dummy_targets()
+        self.client.delete(self.route)
+        self.register_foo_and_foo2()
+
+        loginData = {'username': 'foo', 'password': 'bar'}
+        r = self.client.post('/login', data = json.dumps(loginData))
+        self.headers = {'Authorization': 'Bearer ' + str(r.json['bearer'])}
+
+    def register_foo_and_foo2(self):
+        data = {'username': 'foo',
+                'password': 'bar'}
+        self.client.post(self.registerRoute, data = json.dumps(data))
+        data = {'username': 'foo2',
+                'password': 'bar2'}
+        self.client.post(self.registerRoute, data = json.dumps(data))
 
     def create_dummy_targets(self):
         route = '/targets'
@@ -26,19 +150,16 @@ class DeliveryGroupTest(TestCase):
                 else:
                     self.assertEquals(v, data[k])
 
-    def setUp(self):
-        self.route = '/deliveries'
-        self.create_dummy_targets()
-        self.client.delete(self.route)
-
     def add_data_single(self):
         self.data = [{
-                    'name': 'Blood sample',
-                    'description': 'Blood sample for patient Jane Doe',
-                    'priority': 0,
-                    'from': 1,
-                    'to': 2
-                    }]
+            'name': 'Blood sample',
+            'description': 'Blood sample for patient Jane Doe',
+            'priority': 0,
+            'from': 1,
+            'to': 2,
+            'sender': 'foo',
+            'receiver': 'foo2'
+        }]
 
     def add_data_multiple(self):
         self.data = [{
@@ -46,13 +167,17 @@ class DeliveryGroupTest(TestCase):
             'description': 'Blood sample for patient Jane Doe',
             'priority': 0,
             'from': 1,
-            'to': 2
+            'to': 2,
+            'sender': 'foo',
+            'receiver': 'foo2'
         }, {
             'name': 'Papers',
             'description': 'Patient records',
             'priority': 0,
             'from': 2,
-            'to': 1
+            'to': 1,
+            'sender': 'foo',
+            'receiver': 'foo2'
         }]
 
     def add_data_triple(self):
@@ -61,32 +186,44 @@ class DeliveryGroupTest(TestCase):
             'description': 'Blood sample for patient Jane Doe',
             'priority': 0,
             'from': 1,
-            'to': 2
+            'to': 2,
+            'sender': 'foo',
+            'receiver': 'foo2'
         }, {
             'name': 'Papers',
             'description': 'Patient records',
             'priority': 1,
             'from': 2,
-            'to': 1
+            'to': 1,
+            'sender': 'foo',
+            'receiver': 'foo2'
         }, {
             'name': 'Cake',
             'description': 'This was a triumph',
             'priority': 0,
             'from': 2,
-            'to': 1
+            'to': 1,
+            'sender': 'foo',
+            'receiver': 'foo2'
         }]
 
     def post_data_single(self):
-        return self.client.post(self.route, data = json.dumps(self.data[0]))
+        return self.client.post(self.route, data = json.dumps(self.data[0]),
+                                headers = self.headers)
 
     def post_data_multiple(self):
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
+        self.client.post(self.route, data = json.dumps(self.data[0]),
+                         headers = self.headers)
+        self.client.post(self.route, data = json.dumps(self.data[1]),
+                         headers = self.headers)
 
     def post_data_triple(self):
-        self.client.post(self.route, data = json.dumps(self.data[0]))
-        self.client.post(self.route, data = json.dumps(self.data[1]))
-        self.client.post(self.route, data = json.dumps(self.data[2]))
+        self.client.post(self.route, data = json.dumps(self.data[0]),
+                         headers = self.headers)
+        self.client.post(self.route, data = json.dumps(self.data[1]),
+                         headers = self.headers)
+        self.client.post(self.route, data = json.dumps(self.data[2]),
+                         headers = self.headers)
 
     def check_response_in_range(self, r):
         for i in range(0, len(r.json)):
@@ -105,7 +242,6 @@ class DeliveryGroupTest(TestCase):
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.check_response_in_range(r)
-
 
     def test_get_deliveries_multiple(self):
         self.add_data_multiple()
@@ -140,25 +276,25 @@ class DeliveryGroupTest(TestCase):
 
     def test_post_deliveries_error_no_name(self):
         self.add_data_single()
-        del self.data[0]['name'] #Remove name value from data
+        del self.data[0]['name']
         r = self.post_data_single()
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_name_not_string(self):
         self.add_data_single()
-        self.data[0]['name'] = 1 #Set name value to some non-string val
+        self.data[0]['name'] = 1
         r = self.post_data_single()
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_no_priority(self):
         self.add_data_single()
-        del self.data[0]['priority'] #Remove priority value from data
+        del self.data[0]['priority']
         r = self.post_data_single()
         self.assertEquals(r.status_code, 400)
 
     def test_post_deliveries_error_invalid_priority(self):
         self.add_data_single()
-        self.data[0]['priority'] = None #Set priority value from data to None
+        self.data[0]['priority'] = None
         r = self.post_data_single()
         self.assertEquals(r.status_code, 400)
 
@@ -200,6 +336,12 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
         self.assertNotEquals(r.json[0]['id'], r.json[1]['id'])
 
+    def test_post_deliveries_error_wrong_token(self):
+        self.add_data_single()
+        r = self.client.post(self.route, data = json.dumps(self.data[0]),
+                             headers = {'Authorization': 'Bearer VOID'})
+        self.assertEquals(r.status_code, 401)
+
     # Delivery routes
     def test_get_delivery(self):
         self.add_data_multiple()
@@ -230,21 +372,34 @@ class DeliveryGroupTest(TestCase):
         self.add_data_multiple()
         self.post_data_multiple()
 
-        self.route = 'delivery/0'
+        self.route = '/delivery/0'
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json['state'], 'UNKNOWN')
-        r = self.client.patch(self.route, data = json.dumps({"state":
-                                                        "IN_PROGRESS"}))
+        self.assertEquals(r.json['state'], 'IN_QUEUE')
+        r = self.client.patch(self.route, data = json.dumps(
+            {"state": "MOVING_TO_SOURCE"}))
         self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json['state'], 'MOVING_TO_SOURCE')
+
+    def test_patch_delivery_invalid_state(self):
+        self.add_data_multiple()
+        self.post_data_multiple()
+
+        self.route = '/delivery/0'
+        r = self.client.get(self.route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json['state'], 'IN_QUEUE')
+        r = self.client.patch(self.route, data = json.dumps(
+            {"state": "FOOBAR"}))
+        self.assertEquals(r.status_code, 400)
 
     def test_patch_delivery_error_invalid_key(self):
         self.add_data_multiple()
         self.post_data_multiple()
 
         self.route = '/delivery/foo'
-        r = self.client.patch(self.route, data = json.dumps({"state":
-                                                        "IN_PROGRESS"}))
+        r = self.client.patch(self.route, data = json.dumps(
+            {"state": "MOVING_TO_SOURCE"}))
         self.assertEquals(r.status_code, 404)
 
     def test_patch_delivery_error_key_not_found(self):
@@ -252,8 +407,8 @@ class DeliveryGroupTest(TestCase):
         self.post_data_multiple()
 
         self.route = '/delivery/2'
-        r = self.client.patch(self.route, data = json.dumps({"state":
-                                                        "IN_PROGRESS"}))
+        r = self.client.patch(self.route, data = json.dumps(
+            {"state": "MOVING_TO_SOURCE"}))
         self.assertEquals(r.status_code, 404)
 
     def test_delete_delivery(self):
@@ -358,9 +513,7 @@ class TargetGroupTest(TestCase):
         r = self.post_data_single(data)
         self.assertEquals(r.status_code, 400)
 
-
     # Target route
-
     def check_repsonse_in_range(self, r, data, index):
         for k, v in data[index].iteritems():
             self.assertEquals(v, r.json[k])
@@ -401,7 +554,6 @@ class TargetGroupTest(TestCase):
         route = '/target/a'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 404)
-
 
     def test_patch_target(self):
         data = self.get_default_data()
@@ -497,7 +649,6 @@ class RobotGroupTest(TestCase):
     def data_single(self):
         return {'type': 'MOVE', 'value': 100}
 
-
     # Instruction routes
     def test_delete_instructions(self):
         r = self.client.delete(self.route)
@@ -548,7 +699,6 @@ class RobotGroupTest(TestCase):
         r = self.client.post(self.route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
-
     # Batch instructions route
     def batch_data(self):
         return [{'type': 'MOVE', 'value': 100},
@@ -569,7 +719,11 @@ class RobotGroupTest(TestCase):
         route = '/instructions/batch'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, {'instructions': data,
+
+        resjson = r.json
+        if 'token' in resjson:
+            del resjson['token']
+        self.assertEquals(resjson, {'instructions': data,
                                    'correction': data_correction})
 
     def test_get_instruction_batch_no_correction(self):
@@ -580,7 +734,12 @@ class RobotGroupTest(TestCase):
         route = '/instructions/batch'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, {'instructions': data})
+
+        resjson = r.json
+        if 'token' in resjson:
+            del resjson['token']
+
+        self.assertEquals(resjson, {'instructions': data})
 
     def test_get_instruction_batch_limit(self):
         data = self.batch_data()
@@ -592,19 +751,31 @@ class RobotGroupTest(TestCase):
         route = '/instructions/batch?limit=2'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, {'instructions': data[0:2],
+
+        resjson = r.json
+        if 'token' in resjson:
+            del resjson['token']
+        self.assertEquals(resjson, {'instructions': data[0:2],
                                    'correction': data_correction})
 
         route = '/instructions/batch?limit=3'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, {'instructions': data,
+
+        resjson = r.json
+        if 'token' in resjson:
+            del resjson['token']
+        self.assertEquals(resjson, {'instructions': data,
                                    'correction': data_correction})
 
         route = '/instructions/batch?limit=10'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, {'instructions': data,
+
+        resjson = r.json
+        if 'token' in resjson:
+            del resjson['token']
+        self.assertEquals(resjson, {'instructions': data,
                                    'correction': data_correction})
 
     def test_get_instruction_batch_limit_invalid(self):
@@ -776,6 +947,148 @@ class RobotGroupTest(TestCase):
         self.assertEquals(r.json, data)
 
 
+class VerifyTest(TestCase):
+    def create_app(self):
+        self.app = flaskapp.app
+        self.registerRoute = '/register'
+        self.loginRoute = '/login'
+        self.verifyRoute = '/verify'
+        self.app.config['TESTING'] = True
+        self.app.config['DATASET_DATABASE_URI'] = 'sqlite:///testdb.db'
+        return self.app
+
+    def clear_database(self):
+        db = dataset.connect(self.app.config['DATASET_DATABASE_URI'])
+        db['users'].drop()
+
+    def setUp(self):
+        self.clear_database()
+        self.route = '/deliveries'
+        self.client.delete(self.route)
+        self.create_dummy_targets()
+        self.client.delete(self.route)
+        self.register_foo_and_foo2()
+
+        loginData = {'username': 'foo', 'password': 'bar'}
+        r = self.client.post('/login', data = json.dumps(loginData))
+        self.headers = {'Authorization': 'Bearer ' + str(r.json['bearer'])}
+
+    def register_foo_and_foo2(self):
+        data = {'username': 'foo',
+                'password': 'bar'}
+        self.client.post(self.registerRoute, data = json.dumps(data))
+        data = {'username': 'foo2',
+                'password': 'bar2'}
+        self.client.post(self.registerRoute, data = json.dumps(data))
+
+    def create_dummy_targets(self):
+        route = '/targets'
+        data = [{'name': 'Reception'},
+                {'name': 'Pharmacy', 'description': 'foo'}]
+        self.client.delete(route)
+        self.client.post(route, data = json.dumps(data[0]))
+        self.client.post(route, data = json.dumps(data[1]))
+
+    def add_data_single(self):
+        self.data = [{
+            'name': 'Blood sample',
+            'description': 'Blood sample for patient Jane Doe',
+            'priority': 0,
+            'from': 1,
+            'to': 2,
+            'sender': 'foo',
+            'receiver': 'foo2'
+        }]
+
+    def setup_delivery(self):
+        self.add_data_single()
+        bearer = self.login("foo", "bar")
+        self.route = '/deliveries'
+        r = self.client.post(self.route, data = json.dumps(self.data[0]),
+                             headers = {"Authorization": "Bearer " + bearer})
+        self.assertEquals(r.status_code, 200)
+
+    def change_delivery_state(self, state):
+        self.route = '/delivery/0'
+        r = self.client.patch(self.route, data = json.dumps({
+            "state": state
+        }))
+        self.assertEquals(r.status_code, 200)
+
+    def login(self, username, password):
+        self.route = '/login'
+        r = self.client.post(self.route, data = json.dumps({
+            "username": username,
+            "password": password
+        }))
+        self.assertEquals(r.status_code, 200)
+        return r.json['bearer']
+
+    def get_challenge_token(self):
+        self.route = '/instructions/batch'
+        r = self.client.get(self.route)
+        self.assertEquals(r.status_code, 200)
+        token = r.json['token']
+        self.assertEquals(len(token), 10)
+        return token
+
+    def execute_challenge(self, token, bearer):
+        self.route = '/verify'
+        headers = {'Authorization': 'Bearer ' + str(bearer)}
+        data = {'token': token}
+        r = self.client.post(self.route, data = json.dumps(data),
+                             headers = headers)
+        return r
+
+    def test_post_verify_auth_sender(self):
+        self.setup_delivery()
+        self.change_delivery_state("AWAITING_AUTHENTICATION_SENDER")
+        bearer = self.login("foo", "bar")
+        token = self.get_challenge_token()
+        r = self.execute_challenge(token, bearer)
+        self.assertEquals(r.status_code, 200)
+
+        self.route = "/delivery/0"
+        r = self.client.get(self.route)
+        self.assertEquals(r.json['state'], "AWAITING_PACKAGE_LOAD")
+
+    def test_post_verify_auth_receiver(self):
+        self.setup_delivery()
+        self.change_delivery_state("AWAITING_AUTHENTICATION_RECEIVER")
+        bearer = self.login("foo2", "bar2")
+        token = self.get_challenge_token()
+        r = self.execute_challenge(token, bearer)
+        self.assertEquals(r.status_code, 200)
+
+        self.route = "/delivery/0"
+        r = self.client.get(self.route)
+        self.assertEquals(r.json['state'], "AWAITING_PACKAGE_RETRIEVAL")
+
+    def test_post_verify_error_wrong_state(self):
+        self.setup_delivery()
+        self.change_delivery_state("IN_QUEUE")
+        bearer = self.login("foo2", "bar2")
+        token = self.get_challenge_token()
+        r = self.execute_challenge(token, bearer)
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_verify_error_wrong_token(self):
+        self.setup_delivery()
+        self.change_delivery_state("AWAITING_AUTHENTICATION_RECEIVER")
+        bearer = self.login("foo2", "bar2")
+        token = "blahblah"
+        r = self.execute_challenge(token, bearer)
+        self.assertEquals(r.status_code, 401)
+
+    def test_post_verify_error_wrong_bearer(self):
+        self.setup_delivery()
+        self.change_delivery_state("AWAITING_AUTHENTICATION_RECEIVER")
+        bearer = "foofoo"
+        token = self.get_challenge_token()
+        r = self.execute_challenge(token, bearer)
+        self.assertEquals(r.status_code, 401)
+
+
 class DataStructureTest(TestCase):
     def create_app(self):
         app = flaskapp.app
@@ -787,18 +1100,16 @@ class DataStructureTest(TestCase):
         t2 = flaskapp.Target(2, "Office")
 
         # Delivery can be initialised without errors
-        flaskapp.Delivery(1, t1, t2, 0, "Foo", "Bar")
+        flaskapp.Delivery(1, t1, t2, 0, "Foo", "Bar", "jdoe", "drseuss")
 
         # Delivery with no packages raises an error
         with self.assertRaises(ValueError):
             flaskapp.Delivery(1, t1, t2, 0, "Foo", "Bar",
-                              5, 20.0,
-                              19.0)
+                              "jdoe", "drseuss", 5, 20.0, 19.0)
 
         with self.assertRaises(ValueError):
             flaskapp.Delivery(1, t1, t2, 0, "Foo", "Bar",
-                              5, 20.0,
-                              21.0, -1)
+                              "jdoe", "drseuss", 5, 20.0, 21.0, -1)
 
 
 if __name__ == '__main__':

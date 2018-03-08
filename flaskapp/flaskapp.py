@@ -1,7 +1,9 @@
-from flask import Flask, abort, request, jsonify, g
+from flask import Flask, request, jsonify, g
 import dataset
 import shelve
 import copy
+import random
+import string
 from flask_bcrypt import Bcrypt
 from classes import Delivery, Instruction, Target, DeliveryState
 from encoder import CustomJSONEncoder
@@ -28,6 +30,38 @@ def get_cache():
     return g.cache
 
 
+def generate_bearer_token():
+    return ''.join([random.choice(string.ascii_letters + string.digits)
+                    for n in range(32)])
+
+
+def generate_challenge_token():
+    return ''.join([random.choice(string.ascii_letters + string.digits)
+                    for n in range(10)])
+
+
+class InvalidBearerException(Exception):
+    pass
+
+
+def get_username(headers):
+    if 'Authorization' not in headers:
+        raise InvalidBearerException("No Authorization header found.")
+    if not headers['Authorization'].startswith("Bearer "):
+        raise InvalidBearerException("Authorization method must be bearer.")
+    if len(headers['Authorization'][7:]) != 32:
+        raise InvalidBearerException("Bearer token invalid.")
+
+    bearer = headers['Authorization'][7:]
+    usersTable = get_db()['users']
+    user = usersTable.find_one(bearer=bearer)
+
+    if user is None:
+        raise InvalidBearerException("This bearer token is invalid.")
+
+    return user['username']
+
+
 @app.teardown_appcontext
 def close_cache(error):
     if hasattr(g, 'cache'):
@@ -35,34 +69,52 @@ def close_cache(error):
 
 
 # Reads the stored values and outputs them.
-@app.route('/login', methods = ['GET', 'POST'])
+@app.route('/login', methods = ['POST'])
 def login():
-    username = request.values.get('username')
-    password = request.values.get('password')
+    data = request.get_json(force=True)
+    if 'username' not in data:
+        return bad_request("Missing username")
+    if 'password' not in data:
+        return bad_request("Missing password")
+
+    username = data['username']
+    password = data['password']
 
     usersTable = get_db()['users']
     user = usersTable.find_one(username=username)
-
     if(user):
         if(bcrypt.check_password_hash(user['password'], password)):
-            return (str(username) + " " + str(password) +
-                    " token: TOKEN_PLACEHOLDER")
+            token = generate_bearer_token()
+            usersTable.update({"username": username, "bearer": token},
+                              ['username'])
+            return jsonify({'bearer': token})
 
-    abort(401)
+    return unauthorized("No such username/password combination")
 
 
-@app.route('/register', methods = ['GET', 'POST'])
+@app.route('/register', methods = ['POST'])
 def register():
-    username = request.values.get('username')
-    password = request.values.get('password')
+    data = request.get_json(force=True)
+    if 'username' not in data:
+        return bad_request("Missing username")
+    if 'password' not in data:
+        return bad_request("Missing password")
+
+    username = data['username']
+    password = data['password']
     hashedPassword = bcrypt.generate_password_hash(password)
 
     usersTable = get_db()['users']
+    user = usersTable.find_one(username=username)
+    if user is not None:
+        return bad_request("This username is already taken.")
+
     if(username and password and len(username) > 0 and len(password) > 0):
-        usersTable.insert(dict(username=username, password=hashedPassword))
-        return str(username) + " added"
+        usersTable.insert(dict(username=username, password=hashedPassword,
+                               bearer=''))
+        return ''
     else:
-        return "invalid username/password"
+        return bad_request("Invalid username/password")
 
 
 #                                            #
@@ -98,10 +150,20 @@ def deliveries_post():
         return bad_request("Must provide a priority")
     if not isinstance(data['priority'], int):
         return bad_request("Priority must be integer")
+    if 'sender' not in data or 'receiver' not in data:
+        return bad_request("Must provide both a sender and a receiver")
+    if (not isinstance(data['sender'], basestring) or       # NOQA
+            not isinstance(data['receiver'], basestring)):  # NOQA
+        return bad_request("Must provide both a sender and a receiver")
 
     targetsTable = get_db()['targets']
     fromTarget = targetsTable.find_one(id=data['from'])
     toTarget = targetsTable.find_one(id=data['to'])
+
+    try:
+        username = get_username(request.headers)
+    except InvalidBearerException as e:
+        return unauthorized(e.message)
 
     if fromTarget is None:
         return bad_request("From target doesn't exist")
@@ -109,12 +171,26 @@ def deliveries_post():
     if toTarget is None:
         return bad_request("To target doesn't exist")
 
+    usersTable = get_db()['users']
+    senderUser = usersTable.find_one(username=data['sender'])
+    receiverUser = usersTable.find_one(username=data['receiver'])
+
+    if data['sender'] != username:
+        return bad_request("Sender has to be logged in user.")
+
+    if senderUser is None:
+        return bad_request("Sender user doesn't exist")
+
+    if receiverUser is None:
+        return bad_request("Receiver user doesn't exist")
+
     if 'description' in data:
-        d = Delivery(counter, fromTarget, toTarget,
-                     data['priority'], data['name'], data['description'])
+        d = Delivery(counter, fromTarget, toTarget, data['sender'],
+                     data['receiver'], data['priority'], data['name'],
+                     data['description'])
     else:
-        d = Delivery(counter, fromTarget, toTarget,
-                     data['priority'], data['name'])
+        d = Delivery(counter, fromTarget, toTarget, data['sender'],
+                     data['receiver'], data['priority'], data['name'])
 
     h = copy.deepcopy(get_cache()['deliveryQueue'])
     h.append((d.priority, counter, d))
@@ -150,23 +226,40 @@ def delivery_get(id):
 
 @app.route('/delivery/<int:id>', methods = ['PATCH'])
 def delivery_patch(id):
+    data = request.get_json(force=True)
+    return patch_delivery_with_json(id, data)
+
+
+def patch_delivery_with_json(id, data):
     if 'deliveryQueue' not in get_cache():
         get_cache()['deliveryQueue'] = []
 
     if 'deliveryQueue' not in get_cache():
         get_cache()['deliveryQueue'] = []
 
-    item = [x[2] for x in get_cache()['deliveryQueue'] if x[1] == id]
-    if len(item) <= 0:
+    index = -1
+    for idx, d in enumerate(get_cache()['deliveryQueue']):
+        if d[1] == id:
+            index = idx
+            break
+
+    if index < 0:
         return file_not_found("There's no delivery with that ID!")
 
-    data = request.get_json(force=True)
     if 'state' not in data:
         return bad_request("Missing state")
     if data['state'] not in [e.name for e in DeliveryState]:
         return bad_request("Invalid state")
 
-    item[0].state = DeliveryState[data['state']]
+    new = copy.deepcopy(get_cache()['deliveryQueue'])
+    new[index][2].state = DeliveryState[data['state']]
+
+    if new[index][2].state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
+        get_cache()['challenge_token'] = generate_challenge_token()
+    if new[index][2].state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
+        get_cache()['challenge_token'] = generate_challenge_token()
+
+    get_cache()['deliveryQueue'] = new
     return delivery_get(id)
 
 
@@ -342,12 +435,16 @@ def instructions_batch_get():
 
     instructions = get_cache()['instructions'][:limit]
 
+    response = {}
+    response['instructions'] = instructions
+
     if 'correction' in get_cache():
-        correction = {'angle': get_cache()['correction']}
-        return jsonify({'instructions': instructions,
-                        'correction': correction})
-    else:
-        return jsonify({'instructions': instructions})
+        response['correction'] = {'angle': get_cache()['correction']}
+
+    if 'challenge_token' in get_cache():
+        response['token'] = get_cache()['challenge_token']
+
+    return jsonify(response)
 
 
 # Instruction routes
@@ -430,10 +527,68 @@ def lock_post():
     return jsonify({'locked': get_cache()['locked']})
 
 
+# Verify routes
+@app.route('/verify', methods = ['POST'])
+def verify_post():
+    data = request.get_json(force=True)
+
+    if 'token' not in data:
+        return bad_request("Must supply a challenge token")
+    elif not isinstance(data['token'], basestring):         # NOQA
+        return bad_request("Challenge token must be string")
+
+    try:
+        username = get_username(request.headers)
+    except InvalidBearerException as e:
+        return unauthorized(e.message)
+
+    if data['token'] != get_cache()['challenge_token']:
+        return unauthorized("Challenge token doesn't match QR")
+
+    delivery = None
+    delivery_id = -1
+    for d in get_cache()['deliveryQueue']:
+        if (d[2].state == DeliveryState.AWAITING_AUTHENTICATION_SENDER or
+                d[2].state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER):
+            delivery = d[2]
+            delivery_id = d[1]
+            break
+
+    if delivery_id < 0:
+        return bad_request("No deliveries awaiting authentication")
+
+    if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
+        if delivery.sender == username:
+            del get_cache()['challenge_token']
+            patch_delivery_with_json(delivery_id, {"state": "AWAITING_PACKAGE_LOAD"})
+            return ''
+
+    if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
+        if delivery.receiver == username:
+            del get_cache()['challenge_token']
+            patch_delivery_with_json(delivery_id, {"state": "AWAITING_PACKAGE_RETRIEVAL"})
+            return ''
+
+    return unauthorized("You are not allowed to open the box!")
+
+
 # Used if there is an error in the application.
 def bad_request(friendly):
     error_code = 400
     error = 'Bad request'
+
+    data = {
+        'code': error_code,
+        'error': error,
+        'friendly':  friendly
+    }
+
+    return jsonify(data), error_code
+
+
+def unauthorized(friendly):
+    error_code = 401
+    error = 'Unauthorized access'
 
     data = {
         'code': error_code,

@@ -31,7 +31,9 @@ class CustomJSONEncoder(JSONEncoder):
                 'priority': obj.priority,
                 'from': obj.fromTarget,
                 'to': obj.toTarget,
-                'state': obj.state
+                'state': obj.state,
+                'sender': obj.sender,
+                'receiver': obj.receiver
             }
 
             if obj.description is not None:

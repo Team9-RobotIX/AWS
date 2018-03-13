@@ -724,7 +724,7 @@ class RobotGroupTest(TestCase):
         if 'token' in resjson:
             del resjson['token']
         self.assertEquals(resjson, {'instructions': data,
-                                   'correction': data_correction})
+                                    'correction': data_correction})
 
     def test_get_instruction_batch_no_correction(self):
         data = self.batch_data()
@@ -756,7 +756,7 @@ class RobotGroupTest(TestCase):
         if 'token' in resjson:
             del resjson['token']
         self.assertEquals(resjson, {'instructions': data[0:2],
-                                   'correction': data_correction})
+                                    'correction': data_correction})
 
         route = '/instructions/batch?limit=3'
         r = self.client.get(route)
@@ -766,7 +766,7 @@ class RobotGroupTest(TestCase):
         if 'token' in resjson:
             del resjson['token']
         self.assertEquals(resjson, {'instructions': data,
-                                   'correction': data_correction})
+                                    'correction': data_correction})
 
         route = '/instructions/batch?limit=10'
         r = self.client.get(route)
@@ -776,7 +776,7 @@ class RobotGroupTest(TestCase):
         if 'token' in resjson:
             del resjson['token']
         self.assertEquals(resjson, {'instructions': data,
-                                   'correction': data_correction})
+                                    'correction': data_correction})
 
     def test_get_instruction_batch_limit_invalid(self):
         data = self.batch_data()
@@ -1028,6 +1028,10 @@ class VerifyTest(TestCase):
         self.route = '/instructions/batch'
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
+
+        if 'token' not in r.json:
+            return None
+
         token = r.json['token']
         self.assertEquals(len(token), 10)
         return token
@@ -1067,10 +1071,8 @@ class VerifyTest(TestCase):
     def test_post_verify_error_wrong_state(self):
         self.setup_delivery()
         self.change_delivery_state("IN_QUEUE")
-        bearer = self.login("foo2", "bar2")
         token = self.get_challenge_token()
-        r = self.execute_challenge(token, bearer)
-        self.assertEquals(r.status_code, 400)
+        self.assertEquals(token, None)
 
     def test_post_verify_error_wrong_token(self):
         self.setup_delivery()

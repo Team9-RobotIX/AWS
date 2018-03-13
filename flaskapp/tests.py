@@ -254,7 +254,7 @@ class DeliveryGroupTest(TestCase):
         self.add_data_single()
         r = self.post_data_single()
         self.assertEquals(r.status_code, 200)
-        self.check_response_in_range(r)
+        self.check_delivery_response_match(r.json, self.data[0])
 
     def test_post_deliveries_reordering(self):
         self.add_data_triple()
@@ -272,7 +272,7 @@ class DeliveryGroupTest(TestCase):
         self.add_data_single()
         r = self.post_data_single()
         self.assertEquals(r.status_code, 200)
-        self.check_response_in_range(r)
+        self.check_delivery_response_match(r.json, self.data[0])
 
     def test_post_deliveries_error_no_name(self):
         self.add_data_single()

@@ -199,7 +199,7 @@ def deliveries_post():
     get_cache()['deliveryQueueCounter'] += 1
     get_cache()['deliveryQueue'] = h
 
-    return deliveries_get()
+    return delivery_get(counter)
 
 
 @app.route('/deliveries', methods = ['DELETE'])

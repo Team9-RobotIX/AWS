@@ -259,6 +259,12 @@ def patch_delivery_with_json(id, data):
     new = copy.deepcopy(get_cache()['deliveryQueue'])
     new[index][2].state = DeliveryState[data['state']]
 
+    # Temporary fix for #54
+    if new[index][2].state == DeliveryState.MOVING_TO_SOURCE:
+        get_cache()['locked'] = True
+    if new[index][2].state == DeliveryState.MOVING_TO_DESTINATION:
+        get_cache()['locked'] = True
+
     if new[index][2].state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         get_cache()['challenge_token'] = generate_challenge_token()
     if new[index][2].state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
@@ -565,6 +571,7 @@ def verify_post():
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         if delivery.sender == username:
             del get_cache()['challenge_token']
+            get_cache()['locked'] = True
             patch_delivery_with_json(delivery_id, {"state":
                                                    "AWAITING_PACKAGE_LOAD"})
             return ''
@@ -572,6 +579,7 @@ def verify_post():
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         if delivery.receiver == username:
             del get_cache()['challenge_token']
+            get_cache()['locked'] = True
             patch_delivery_with_json(delivery_id,
                                      {"state": "AWAITING_PACKAGE_RETRIEVAL"})
             return ''

@@ -669,7 +669,7 @@ class RobotGroupTest(TestCase):
         return self.client.post(self.routeBase + '/distance',
                                 data = json.dumps(data))
 
-    def get_batch(self, value):
+    def get_batch(self):
         return self.client.get(self.routeBase + '/batch')
 
     def clear_all_robot_fields(self):
@@ -681,7 +681,7 @@ class RobotGroupTest(TestCase):
     def check_batch_get_response_match(self, data):
         r = self.get_batch()
         self.assertEquals(r.status_code, 200)
-        self.check_batch_response_match(data, r.json)
+        self.check_response_match(data, r.json)
         return data
 
     # Batch instructions route
@@ -693,11 +693,9 @@ class RobotGroupTest(TestCase):
             'distance': 0.0
         }
 
-        r = self.get_batch()
-        self.assertEquals(r.status_code, 200)
-        self.check_batch_response_match(data, r.json)
+        self.check_batch_get_response_match(data)
 
-    def test_get_batch_changes(self):
+    def test_post_batch_changes(self):
         data = {
             'angle': 0.0,
             'correction': 0.0,
@@ -709,27 +707,27 @@ class RobotGroupTest(TestCase):
         data['angle'] = 23.0
         r = self.post_angle(data['angle'])
         self.assertEquals(r.status_code, 200)
-        self.check_batch_get_response_match(self, data)
+        self.check_batch_get_response_match(data)
 
         # Check 'correction' changes correctly
         data['correction'] = 23.0
         r = self.post_correction(data['correction'])
         self.assertEquals(r.status_code, 200)
-        self.check_batch_get_response_match(self, data)
+        self.check_batch_get_response_match(data)
 
         # Check 'motor' changes correctly
         data['motor'] = True
         r = self.post_motor(data['motor'])
         self.assertEquals(r.status_code, 200)
-        self.check_batch_get_response_match(self, data)
+        self.check_batch_get_response_match(data)
 
         # Check 'distance' changes correctly
         data['distance'] = 23.0
         r = self.post_correction(data['distance'])
         self.assertEquals(r.status_code, 200)
-        self.check_batch_get_response_match(self, data)
+        self.check_batch_get_response_match(data)
 
-    def test_get_batch_no_changes_invalid_updates(self):
+    def test_post_batch_no_changes_invalid_updates(self):
         data = {
             'angle': 0.0,
             'correction': 0.0,
@@ -740,22 +738,22 @@ class RobotGroupTest(TestCase):
         # Check 'angle' changes correctly
         r = self.post_angle('asd')
         self.assertEquals(r.status_code, 400)
-        self.check_batch_get_response_match(self, data)
+        self.check_batch_get_response_match(data)
 
         # Check 'correction' changes correctly
         r = self.post_correction('asdasd')
         self.assertEquals(r.status_code, 400)
-        self.check_batch_get_response_match(self, data)
+        self.check_batch_get_response_match(data)
 
         # Check 'motor' changes correctly
         r = self.post_motor('asdasd')
         self.assertEquals(r.status_code, 400)
-        self.check_batch_get_response_match(self, data)
+        self.check_batch_get_response_match(data)
 
         # Check 'distance' changes correctly
         r = self.post_correction('asdasd')
         self.assertEquals(r.status_code, 400)
-        self.check_batch_get_response_match(self, data)
+        self.check_batch_get_response_match(data)
 
     def test_post_batch(self):
         data = {
@@ -764,7 +762,7 @@ class RobotGroupTest(TestCase):
             'motor': False,
             'distance': 0.0
         }
-        self.check_batch_get_response_match(self, data)
+        self.check_batch_get_response_match(data)
 
         # Check 'angle' changes correctly
         data['angle'] = 23.0
@@ -774,7 +772,7 @@ class RobotGroupTest(TestCase):
         r = self.client.post(self.routeBase + '/batch',
                              data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
-        self.check_batch_get_response_match(self, data)
+        self.check_batch_get_response_match(data)
 
     def test_post_batch_error_invalid_angle(self):
         data = {'angle': 'asd'}

@@ -26,7 +26,8 @@ def get_cache():
     It can store arbitrary objects.
     """
     if not hasattr(g, 'cache'):
-        g.cache = shelve.open(app.config['SHELVE_FILENAME'], protocol=2)
+        g.cache = shelve.open(app.config['SHELVE_FILENAME'], protocol=2,
+                              writeback=True)
     return g.cache
 
 

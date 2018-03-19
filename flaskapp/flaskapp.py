@@ -208,11 +208,6 @@ def deliveries_delete():
         get_cache()['deliveryQueue'] = []
         get_cache()['deliveryQueueCounter'] = 0
 
-    if 'challenge_token' in get_cache():
-        del get_cache()['challenge_token']
-
-    get_cache()['deliveryQueueCounter'] = 0
-
     return ''
 
 
@@ -584,15 +579,13 @@ def verify_post():
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         if delivery.sender == username:
             del get_cache()['challenge_token']
-            patch_delivery_with_json(delivery_id, {"state":
-                                                   "AWAITING_PACKAGE_LOAD"})
+            patch_delivery_with_json(delivery_id, {"state": "AWAITING_PACKAGE_LOAD"})
             return ''
 
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         if delivery.receiver == username:
             del get_cache()['challenge_token']
-            patch_delivery_with_json(delivery_id,
-                                     {"state": "AWAITING_PACKAGE_RETRIEVAL"})
+            patch_delivery_with_json(delivery_id, {"state": "AWAITING_PACKAGE_RETRIEVAL"})
             return ''
 
     return unauthorized("You are not allowed to open the box!")

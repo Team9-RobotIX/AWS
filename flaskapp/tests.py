@@ -888,14 +888,14 @@ class RobotGroupTest(TestCase):
 
     # Lock routes
     def test_post_lock_set_true(self):
-        data = {'locked': True}
+        data = {'lock': True}
         route = self.routeBase + '/lock'
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, data)
 
     def test_post_lock_set_false(self):
-        data = {'locked': True}
+        data = {'lock': True}
         route = self.routeBase + '/lock'
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
@@ -903,7 +903,7 @@ class RobotGroupTest(TestCase):
 
     def test_get_lock_false(self):
         route = self.routeBase + '/lock'
-        data = {'locked': False}
+        data = {'lock': False}
         self.client.post(route, data = json.dumps(data))
 
         r = self.client.get(route)
@@ -912,7 +912,7 @@ class RobotGroupTest(TestCase):
 
     def test_get_lock_true(self):
         route = self.routeBase + '/lock'
-        data = {'locked': True}
+        data = {'lock': True}
         self.client.post(route, data = json.dumps(data))
 
         r = self.client.get(route)

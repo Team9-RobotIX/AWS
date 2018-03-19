@@ -640,296 +640,271 @@ class RobotGroupTest(TestCase):
         return app
 
     def setUp(self):
-        self.route = '/instructions'
-        self.client.delete(self.route)
+        self.routeBase = '/robot/0'
+        self.clear_all_robot_fields()
 
-    def data_double(self):
-        return [{'type': 'MOVE', 'value': 100}, {'type': 'TURN', 'value': 90}]
+    # Helper methods
+    def check_response_match(self, expected, res):
+        for k, v in expected.iteritems():
+            self.assertTrue(k in res)
+            self.assertEquals(v, res[k])
 
-    def data_single(self):
-        return {'type': 'MOVE', 'value': 100}
+    def post_correction(self, value):
+        data = {'correction': value}
+        return self.client.post(self.routeBase + '/correction',
+                                data = json.dumps(data))
 
-    # Instruction routes
-    def test_delete_instructions(self):
-        r = self.client.delete(self.route)
+    def post_angle(self, value):
+        data = {'angle': value}
+        return self.client.post(self.routeBase + '/angle',
+                                data = json.dumps(data))
+
+    def post_motor(self, value):
+        data = {'motor': value}
+        return self.client.post(self.routeBase + '/motor',
+                                data = json.dumps(data))
+
+    def post_distance(self, value):
+        data = {'distance': value}
+        return self.client.post(self.routeBase + '/distance',
+                                data = json.dumps(data))
+
+    def get_batch(self, value):
+        return self.client.get(self.routeBase + '/batch')
+
+    def clear_all_robot_fields(self):
+        self.post_correction(0.0)
+        self.post_angle(0.0)
+        self.post_motor(False)
+        self.post_distance(0.0)
+
+    def check_batch_get_response_match(self, data):
+        r = self.get_batch()
         self.assertEquals(r.status_code, 200)
-
-    def test_get_instructions_queue_empty(self):
-        r = self.client.get(self.route)
-        self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, [])
-
-    def test_get_instructions(self):
-        data = self.data_double()
-        self.client.post(self.route, data = json.dumps(data))
-
-        r = self.client.get(self.route)
-        self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, data)
-
-    def test_post_instructions_single(self):
-        data = self.data_single()
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, [data])
-
-    def test_post_instructions_multiple(self):
-        data = self.data_double()
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, data)
-
-    def test_post_instructions_fails_with_missing_type(self):
-        data = [{'value': 100}]
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
-
-    def test_post_instructions_fails_with_missing_value(self):
-        data = [{'type': 'MOVE'}]
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
-
-    def test_post_instructions_fails_with_invalid_type(self):
-        data = [{'type': 'HALT', 'value': 100}]
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
-
-    def test_post_instructions_fails_with_bad_angle(self):
-        data = [{'type': 'TURN', 'value': 190.0}]
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
+        self.check_batch_response_match(data, r.json)
+        return data
 
     # Batch instructions route
-    def batch_data(self):
-        return [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90},
-                {'type': 'TURN', 'value': -90}]
+    def test_get_batch_empty(self):
+        data = {
+            'angle': 0.0,
+            'correction': 0.0,
+            'motor': False,
+            'distance': 0.0
+        }
 
-    def delete_instructions_and_corrections(self):
-        self.client.delete('/instructions')
-        self.client.delete('/correction')
-
-    def test_get_instruction_batch(self):
-        data = self.batch_data()
-        data_correction = {'angle': 10.3}
-        self.delete_instructions_and_corrections()
-        self.client.post('/instructions', data = json.dumps(data))
-        self.client.post('/correction', data = json.dumps(data_correction))
-
-        route = '/instructions/batch'
-        r = self.client.get(route)
+        r = self.get_batch()
         self.assertEquals(r.status_code, 200)
+        self.check_batch_response_match(data, r.json)
 
-        resjson = r.json
-        if 'token' in resjson:
-            del resjson['token']
-        self.assertEquals(resjson, {'instructions': data,
-                                    'correction': data_correction})
+    def test_get_batch_changes(self):
+        data = {
+            'angle': 0.0,
+            'correction': 0.0,
+            'motor': False,
+            'distance': 0.0
+        }
 
-    def test_get_instruction_batch_no_correction(self):
-        data = self.batch_data()
-        self.delete_instructions_and_corrections()
-        self.client.post('/instructions', data = json.dumps(data))
-
-        route = '/instructions/batch'
-        r = self.client.get(route)
+        # Check 'angle' changes correctly
+        data['angle'] = 23.0
+        r = self.post_angle(data['angle'])
         self.assertEquals(r.status_code, 200)
+        self.check_batch_get_response_match(self, data)
 
-        resjson = r.json
-        if 'token' in resjson:
-            del resjson['token']
-
-        self.assertEquals(resjson, {'instructions': data})
-
-    def test_get_instruction_batch_limit(self):
-        data = self.batch_data()
-        data_correction = {'angle': 10.3}
-        self.delete_instructions_and_corrections()
-        self.client.post('/instructions', data = json.dumps(data))
-        self.client.post('/correction', data = json.dumps(data_correction))
-
-        route = '/instructions/batch?limit=2'
-        r = self.client.get(route)
+        # Check 'correction' changes correctly
+        data['correction'] = 23.0
+        r = self.post_correction(data['correction'])
         self.assertEquals(r.status_code, 200)
+        self.check_batch_get_response_match(self, data)
 
-        resjson = r.json
-        if 'token' in resjson:
-            del resjson['token']
-        self.assertEquals(resjson, {'instructions': data[0:2],
-                                    'correction': data_correction})
-
-        route = '/instructions/batch?limit=3'
-        r = self.client.get(route)
+        # Check 'motor' changes correctly
+        data['motor'] = True
+        r = self.post_motor(data['motor'])
         self.assertEquals(r.status_code, 200)
+        self.check_batch_get_response_match(self, data)
 
-        resjson = r.json
-        if 'token' in resjson:
-            del resjson['token']
-        self.assertEquals(resjson, {'instructions': data,
-                                    'correction': data_correction})
-
-        route = '/instructions/batch?limit=10'
-        r = self.client.get(route)
+        # Check 'distance' changes correctly
+        data['distance'] = 23.0
+        r = self.post_correction(data['distance'])
         self.assertEquals(r.status_code, 200)
+        self.check_batch_get_response_match(self, data)
 
-        resjson = r.json
-        if 'token' in resjson:
-            del resjson['token']
-        self.assertEquals(resjson, {'instructions': data,
-                                    'correction': data_correction})
+    def test_get_batch_no_changes_invalid_updates(self):
+        data = {
+            'angle': 0.0,
+            'correction': 0.0,
+            'motor': False,
+            'distance': 0.0
+        }
 
-    def test_get_instruction_batch_limit_invalid(self):
-        data = self.batch_data()
-        data_correction = {'angle': 10.3}
-        self.delete_instructions_and_corrections()
-        self.client.post('/instructions', data = json.dumps(data))
-        self.client.post('/correction', data = json.dumps(data_correction))
+        # Check 'angle' changes correctly
+        r = self.post_angle('asd')
+        self.assertEquals(r.status_code, 400)
+        self.check_batch_get_response_match(self, data)
 
-        route = '/instructions/batch?limit=0'
-        r = self.client.get(route)
+        # Check 'correction' changes correctly
+        r = self.post_correction('asdasd')
+        self.assertEquals(r.status_code, 400)
+        self.check_batch_get_response_match(self, data)
+
+        # Check 'motor' changes correctly
+        r = self.post_motor('asdasd')
+        self.assertEquals(r.status_code, 400)
+        self.check_batch_get_response_match(self, data)
+
+        # Check 'distance' changes correctly
+        r = self.post_correction('asdasd')
+        self.assertEquals(r.status_code, 400)
+        self.check_batch_get_response_match(self, data)
+
+    def test_post_batch(self):
+        data = {
+            'angle': 0.0,
+            'correction': 0.0,
+            'motor': False,
+            'distance': 0.0
+        }
+        self.check_batch_get_response_match(self, data)
+
+        # Check 'angle' changes correctly
+        data['angle'] = 23.0
+        data['correction'] = 23.0
+        data['motor'] = True
+        data['distance'] = 23.0
+        r = self.client.post(self.routeBase + '/batch',
+                             data = json.dumps(data))
+        self.assertEquals(r.status_code, 200)
+        self.check_batch_get_response_match(self, data)
+
+    def test_post_batch_error_invalid_angle(self):
+        data = {'angle': 'asd'}
+        r = self.client.post(self.routeBase + '/batch',
+                             data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
-        route = '/instructions/batch?limit=-10'
-        r = self.client.get(route)
+    def test_post_batch_error_invalid_correction(self):
+        data = {'correction': 'asd'}
+        r = self.client.post(self.routeBase + '/batch',
+                             data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
-    # Instruction routes
-    def delete_and_post_instructions(self, data):
-        self.client.delete('/instructions')
-        self.client.post('/instructions', data = json.dumps(data))
+    def test_post_batch_error_invalid_motor(self):
+        data = {'motor': 'asd'}
+        r = self.client.post(self.routeBase + '/batch',
+                             data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
 
-    def test_get_instruction(self):
-        data = self.batch_data()
-        self.delete_and_post_instructions(data)
-
-        for i in range(0, 3):
-            route = '/instruction/' + str(i)
-            r = self.client.get(route)
-            self.assertEquals(r.status_code, 200)
-            self.assertEquals(r.json, data[i])
-
-    def test_get_instruction_invalid_index(self):
-        data = self.batch_data()
-        self.delete_and_post_instructions(data)
-
-        route = '/instruction/-1'
-        r = self.client.get(route)
-        self.assertEquals(r.status_code, 404)
-
-        route = '/instruction/4'
-        r = self.client.get(route)
-        self.assertEquals(r.status_code, 404)
-
-    def test_delete_instruction(self):
-        data = self.batch_data()
-        self.delete_and_post_instructions(data)
-
-        route = '/instruction/0'
-        r = self.client.delete(route)
-        self.assertEquals(r.status_code, 200)
-        s = self.client.get('/instructions')
-        self.assertEquals(s.status_code, 200)
-        self.assertEquals(s.json, [data[1], data[2]])
-
-    def test_delete_instruction_invalid_index(self):
-        data = self.batch_data()
-        self.delete_and_post_instructions(data)
-
-        route = '/instruction/-1'
-        r = self.client.delete(route)
-        self.assertEquals(r.status_code, 404)
-
-        route = '/instruction/4'
-        r = self.client.delete(route)
-        self.assertEquals(r.status_code, 404)
-
-        # Verify collection has not mutated
-        s = self.client.get('/instructions')
-        self.assertEquals(s.status_code, 200)
-        self.assertEquals(s.json, data)
+    def test_post_batch_error_invalid_distance(self):
+        data = {'distance': 'asd'}
+        r = self.client.post(self.routeBase + '/batch',
+                             data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
 
     # Correction routes
-    def test_get_correction_none(self):
-        route = '/correction'
-        self.client.delete(route)
-
-        r = self.client.get(route)
-        self.assertEquals(r.status_code, 404)
-
-    def test_get_correction_angle(self):
-        route = '/correction'
-        data = {'angle': 50.0}
-        self.client.delete(route)
-        self.client.post(route, data = json.dumps(data))
-
+    def test_get_correction(self):
+        route = self.routeBase + '/correction'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
+        self.assertEquals(float(r.json['correction']), 0.0)
 
-    def test_post_correction_angle(self):
-        route = '/correction'
-        data = {'angle': 50.0}
-        self.client.delete(route)
+    def test_post_correction(self):
+        route = self.routeBase + '/correction'
+        data = {'correction': 50.0}
+
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, data)
 
-    def test_post_correction_error_resubmit(self):
-        route = '/correction'
+    def test_post_correction_error_not_float(self):
+        route = self.routeBase + '/correction'
+
+        data = {'correction': 50}
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    # Angle routes
+    def test_get_angle(self):
+        route = self.routeBase + '/angle'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(float(r.json['angle']), 0.0)
+
+    def test_post_angle(self):
+        route = self.routeBase + '/angle'
         data = {'angle': 50.0}
 
-        # Ensure a correction has already been issued
-        self.client.post(route, data = json.dumps(data))
-
         r = self.client.post(route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, data)
 
-    def test_post_correction_error_no_angle(self):
-        route = '/correction'
-        self.client.delete(route)
-
-        data = {'foo': 50.0}
-        r = self.client.post(route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
-
-    def test_post_correction_error_angle_not_float(self):
-        route = '/correction'
-        self.client.delete(route)
+    def test_post_angle_error_angle_not_float(self):
+        route = self.routeBase + '/angle'
 
         data = {'angle': 50}
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
-    def test_delete_correction_angle(self):
-        route = '/correction'
-        data = {'angle': 50.0}
-        self.client.post(route, data = json.dumps(data))
-
-        r = self.client.delete(route)
+    # Distance routes
+    def test_get_distance(self):
+        route = self.routeBase + '/distance'
+        r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
+        self.assertEquals(float(r.json['distance']), 0.0)
 
-    def test_delete_correction_error(self):
-        route = '/correction'
-        self.client.delete(route)  # Ensure correction is clear
-        r = self.client.delete(route)
-        self.assertEquals(r.status_code, 404)
+    def test_post_distance(self):
+        route = self.routeBase + '/distance'
+        data = {'distance': 50.0}
+
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, data)
+
+    def test_post_distance_error_not_float(self):
+        route = self.routeBase + '/distance'
+
+        data = {'distance': 50}
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    # Motor routes
+    def test_get_motor(self):
+        route = self.routeBase + '/motor'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json['motor'], False)
+
+    def test_post_motor(self):
+        route = self.routeBase + '/motor'
+        data = {'motor': True}
+
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, data)
+
+    def test_post_motor_error_not_bool(self):
+        route = self.routeBase + '/motor'
+
+        data = {'motor': 50}
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
 
     # Lock routes
     def test_post_lock_set_true(self):
         data = {'locked': True}
-        route = '/lock'
+        route = self.routeBase + '/lock'
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, data)
 
     def test_post_lock_set_false(self):
         data = {'locked': True}
-        route = '/lock'
+        route = self.routeBase + '/lock'
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, data)
 
     def test_get_lock_false(self):
-        route = '/lock'
+        route = self.routeBase + '/lock'
         data = {'locked': False}
         self.client.post(route, data = json.dumps(data))
 
@@ -938,7 +913,7 @@ class RobotGroupTest(TestCase):
         self.assertEquals(r.json, data)
 
     def test_get_lock_true(self):
-        route = '/lock'
+        route = self.routeBase + '/lock'
         data = {'locked': True}
         self.client.post(route, data = json.dumps(data))
 

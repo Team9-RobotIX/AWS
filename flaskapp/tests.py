@@ -710,7 +710,7 @@ class RobotGroupTest(TestCase):
         self.check_batch_get_response_match(data)
 
         # Check 'correction' changes correctly
-        data['correction'] = 23.0
+        data['correction'] = 74.0
         r = self.post_correction(data['correction'])
         self.assertEquals(r.status_code, 200)
         self.check_batch_get_response_match(data)
@@ -722,7 +722,7 @@ class RobotGroupTest(TestCase):
         self.check_batch_get_response_match(data)
 
         # Check 'distance' changes correctly
-        data['distance'] = 23.0
+        data['distance'] = 99.0
         r = self.post_correction(data['distance'])
         self.assertEquals(r.status_code, 200)
         self.check_batch_get_response_match(data)
@@ -766,9 +766,9 @@ class RobotGroupTest(TestCase):
 
         # Check 'angle' changes correctly
         data['angle'] = 23.0
-        data['correction'] = 23.0
+        data['correction'] = 66.0
         data['motor'] = True
-        data['distance'] = 23.0
+        data['distance'] = 88.0
         r = self.client.post(self.routeBase + '/batch',
                              data = json.dumps(data))
         self.assertEquals(r.status_code, 200)

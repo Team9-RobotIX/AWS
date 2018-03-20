@@ -41,6 +41,10 @@ def generate_challenge_token():
                     for n in range(10)])
 
 
+class BadRequestException(Exception):
+    pass
+
+
 class InvalidBearerException(Exception):
     pass
 
@@ -434,6 +438,16 @@ def robot_batch_get(id):
     return jsonify(response)
 
 
+@app.route('/robot/<int:id>/batch', methods = ['POST'])
+def robot_batch_post(id):
+    data = request.get_json(force=True)
+    robot_update_correction(id, data)
+    robot_update_distance(id, data)
+    robot_update_motor(id, data)
+    robot_update_angle(id, data)
+    return robot_batch_get(id)
+
+
 # Correction routes
 @app.route('/robot/<int:id>/correction', methods = ['GET'])
 def robot_correction_get(id):
@@ -441,16 +455,25 @@ def robot_correction_get(id):
     return jsonify({'correction': r.correction})
 
 
-@app.route('/robot/<int:id>/correction', methods = ['POST'])
-def robot_correction_post(id):
-    data = request.get_json(force=True)
+def robot_update_correction(id, data):
     if 'correction' not in data:
-        return bad_request("You have not supplied a correction angle!")
+        raise BadRequestException("You have not supplied a correction angle!")
     elif not isinstance(data['correction'], float):
-        return bad_request("Supplied angle is not a float")
+        raise BadRequestException("Supplied angle is not a float")
 
     r = get_robot(id)
     r.correction = data['correction']
+
+
+@app.route('/robot/<int:id>/correction', methods = ['POST'])
+def robot_correction_post(id):
+    data = request.get_json(force=True)
+
+    try:
+        robot_update_correction(id, data)
+    except BadRequestException as e:
+        return bad_request(e.message)
+
     return robot_correction_get(id)
 
 
@@ -461,16 +484,25 @@ def robot_angle_get(id):
     return jsonify({'angle': r.angle})
 
 
-@app.route('/robot/<int:id>/angle', methods = ['POST'])
-def robot_angle_post(id):
-    data = request.get_json(force=True)
+def robot_update_angle(id, data):
     if 'angle' not in data:
-        return bad_request("You have not supplied an angle!")
+        raise BadRequestException("You have not supplied an angle!")
     elif not isinstance(data['angle'], float):
-        return bad_request("Supplied angle is not a float")
+        raise BadRequestException("Supplied angle is not a float")
 
     r = get_robot(id)
     r.angle = data['angle']
+
+
+@app.route('/robot/<int:id>/angle', methods = ['POST'])
+def robot_angle_post(id):
+    data = request.get_json(force=True)
+
+    try:
+        robot_update_angle(id, data)
+    except BadRequestException as e:
+        return bad_request(e.message)
+
     return robot_angle_get(id)
 
 
@@ -481,16 +513,25 @@ def robot_distance_get(id):
     return jsonify({'distance': r.distance})
 
 
-@app.route('/robot/<int:id>/distance', methods = ['POST'])
-def robot_distance_post(id):
-    data = request.get_json(force=True)
+def robot_update_distance(id, data):
     if 'distance' not in data:
-        return bad_request("You have not supplied a distance!")
+        raise BadRequestException("You have not supplied a distance!")
     elif not isinstance(data['distance'], float):
-        return bad_request("Supplied distance is not a float")
+        raise BadRequestException("Supplied distance is not a float")
 
     r = get_robot(id)
     r.distance = data['distance']
+
+
+@app.route('/robot/<int:id>/distance', methods = ['POST'])
+def robot_distance_post(id):
+    data = request.get_json(force=True)
+
+    try:
+        robot_update_distance(id, data)
+    except BadRequestException as e:
+        return bad_request(e.message)
+
     return robot_distance_get(id)
 
 
@@ -501,16 +542,25 @@ def robot_motor_get(id):
     return jsonify({'motor': r.motor})
 
 
-@app.route('/robot/<int:id>/motor', methods = ['POST'])
-def robot_motor_post(id):
-    data = request.get_json(force=True)
+def robot_update_motor(id, data):
     if 'motor' not in data:
-        return bad_request("You have not supplied a motor state!")
+        raise BadRequestException("You have not supplied a motor state!")
     elif not isinstance(data['motor'], bool):
-        return bad_request("Supplied motor state is not a bool")
+        raise BadRequestException("Supplied motor state is not a bool")
 
     r = get_robot(id)
     r.motor = data['motor']
+
+
+@app.route('/robot/<int:id>/motor', methods = ['POST'])
+def robot_motor_post(id):
+    data = request.get_json(force=True)
+
+    try:
+        robot_update_motor(id, data)
+    except BadRequestException as e:
+        return bad_request(e.message)
+
     return robot_motor_get(id)
 
 

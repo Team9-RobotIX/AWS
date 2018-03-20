@@ -117,6 +117,7 @@ class DeliveryGroupTest(TestCase):
     def setUp(self):
         self.clear_database()
         self.route = '/deliveries'
+        self.client.delete(self.route)
         self.create_dummy_targets()
         self.client.delete(self.route)
         self.register_foo_and_foo2()
@@ -229,6 +230,23 @@ class DeliveryGroupTest(TestCase):
         for i in range(0, len(r.json)):
             self.check_delivery_response_match(r.json[i], self.data[i])
 
+    def simulate_delivery_state_changes(self, finalState, robotId, deliveryId):
+        states = ["MOVING_TO_SOURCE", "AWAITING_AUTHENTICATION_SENDER",
+                  "AWAITING_PACKAGE_LOAD", "PACKAGE_LOAD_COMPLETE",
+                  "MOVING_TO_DESTINATION", "AWAITING_AUTHENTICATION_RECEIVER",
+                  "AWAITING_PACKAGE_RETRIEVAL", "PACKAGE_RETRIEVAL_COMPLETE",
+                  "COMPLETE"]
+        for s in states[:states.index(finalState) + 1]:
+            self.change_delivery_state(s, robotId, deliveryId)
+
+    def change_delivery_state(self, state, robotId, deliveryId):
+        route = '/delivery/' + str(deliveryId)
+        r = self.client.patch(route, data = json.dumps({
+            "state": state,
+            "robot": robotId
+        }))
+        self.assertEquals(r.status_code, 200)
+
     # Deliveries route
     def test_get_deliveries_empty(self):
         r = self.client.get(self.route)
@@ -328,6 +346,42 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, [])
 
+    def test_delete_deliveries_clears_all_assignments(self):
+        self.add_data_triple()
+        deliveries = []
+
+        # Assign robots to deliveries
+        for id in range(0, 3):
+            route = '/deliveries'
+            r = self.client.post(route, data = json.dumps(self.data[id]),
+                                 headers = self.headers)
+            self.assertEquals(r.status_code, 200)
+            delivery_id = r.json['id']
+            deliveries.append(delivery_id)
+
+            route = '/delivery/' + str(delivery_id)
+            r = self.client.patch(route, data = json.dumps({
+                "state": "MOVING_TO_SOURCE",
+                "robot": id
+            }))
+            self.assertEquals(r.status_code, 200)
+
+            route = '/robot/' + str(id) + '/batch'
+            r = self.client.get(route)
+            self.assertEquals(r.status_code, 200)
+            self.assertTrue('delivery' in r.json)
+
+        # Run delete on deliveries
+        r = self.client.delete(self.route)
+        self.assertEquals(r.status_code, 200)
+
+        # Check the robots have been deassigned
+        for id in range(0, 3):
+            route = '/robot/' + str(id) + '/batch'
+            r = self.client.get(route)
+            self.assertEquals(r.status_code, 200)
+            self.assertTrue('delivery' not in r.json)
+
     def test_post_deliveries_unique_id(self):
         self.add_data_multiple()
         self.post_data_multiple()
@@ -347,7 +401,7 @@ class DeliveryGroupTest(TestCase):
         self.add_data_multiple()
         self.post_data_multiple()
 
-        self.route = 'delivery/0'
+        self.route = '/delivery/0'
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.check_delivery_response_match(r.json, self.data[0])
@@ -394,6 +448,40 @@ class DeliveryGroupTest(TestCase):
         self.assertTrue('state' in r.json['delivery'])
         self.assertEquals(r.json['delivery']['state'], "MOVING_TO_SOURCE")
 
+    def test_patch_delivery_to_complete_clears_robot_assignment(self):
+        self.add_data_single()
+        r = self.post_data_single()
+        self.assertEquals(r.status_code, 200)
+        self.simulate_delivery_state_changes("PACKAGE_RETRIEVAL_COMPLETE",
+                                             0, 0)
+
+        r = self.client.get('/robot/0/batch')
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' in r.json)
+
+        r = self.client.patch('/delivery/0', data = json.dumps({
+            "state": "COMPLETE"}))
+        self.assertEquals(r.status_code, 200)
+
+        r = self.client.get('/robot/0/batch')
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' not in r.json)
+
+    def test_patch_delivery_error_robot_occupied(self):
+        self.add_data_multiple()
+        self.post_data_multiple()  # 0 and 1
+
+        self.simulate_delivery_state_changes("MOVING_TO_SOURCE",
+                                             0, 0)
+        r = self.client.get('/robot/0/batch')
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' in r.json)
+
+        r = self.client.patch('/delivery/1', data = json.dumps({
+            "state": "MOVING_TO_SOURCE", "robot": 0}))
+        self.assertEquals(r.status_code, 400)
+        print(r.data)
+
     def test_patch_delivery_error_invalid_state(self):
         self.add_data_multiple()
         self.post_data_multiple()
@@ -435,6 +523,41 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 404)
+
+    def test_delete_delivery_assigned_to_robot_clears_assignment(self):
+        self.add_data_triple()
+        deliveries = []
+
+        # Assign robots to deliveries
+        for id in range(0, 3):
+            route = '/deliveries'
+            r = self.client.post(route, data = json.dumps(self.data[id]),
+                                 headers = self.headers)
+            self.assertEquals(r.status_code, 200)
+            delivery_id = r.json['id']
+            deliveries.append(delivery_id)
+
+            route = '/delivery/' + str(delivery_id)
+            r = self.client.patch(route, data = json.dumps({
+                "state": "MOVING_TO_SOURCE",
+                "robot": id
+            }))
+            self.assertEquals(r.status_code, 200)
+
+            route = '/robot/' + str(id) + '/batch'
+            r = self.client.get(route)
+            self.assertEquals(r.status_code, 200)
+            self.assertTrue('delivery' in r.json)
+
+        # Run delete on deliveries and check the robots have been deassigned
+        for id in range(0, 3):
+            route = '/delivery/' + str(id)
+            r = self.client.delete(route)
+            self.assertEquals(r.status_code, 200)
+            route = '/robot/' + str(id) + '/batch'
+            r = self.client.get(route)
+            self.assertEquals(r.status_code, 200)
+            self.assertTrue('delivery' not in r.json)
 
     def test_delete_delivery_error_invalid_key(self):
         self.route = '/delivery/foo'

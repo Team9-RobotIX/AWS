@@ -67,6 +67,15 @@ def get_username(headers):
     return user['username']
 
 
+@app.before_first_request
+def startup():
+    if 'DEBUG' not in app.config or not app.config['DEBUG']:
+        print('Clearing cache...')
+        get_cache().clear()
+    else:
+        print('Skipping cache clear as we are running in debug mode.')
+
+
 @app.teardown_appcontext
 def close_cache(error):
     if hasattr(g, 'cache'):
@@ -258,8 +267,22 @@ def patch_delivery_with_json(id, data):
     if data['state'] not in [e.name for e in DeliveryState]:
         return bad_request("Invalid state")
 
-    new = copy.deepcopy(get_cache()['deliveryQueue'])
-    new[index][2].state = DeliveryState[data['state']]
+    delivery = get_cache()['deliveryQueue'][index][2]
+    state = DeliveryState[data['state']]
+    if state == DeliveryState.MOVING_TO_SOURCE:
+        if 'robot' not in data:
+            return bad_request("Missing robot assignment")
+        if not isinstance(data['robot'], int):
+            return bad_request("Robot parameter must be ID")
+
+        delivery.robot = get_robot(data['robot'])
+        delivery.robot.delivery = delivery
+
+    delivery.state = state
+
+    if state == DeliveryState.MOVING_TO_SOURCE:
+        delivery.senderAuthToken = generate_challenge_token()
+        delivery.receiverAuthToken = generate_challenge_token()
 
     lock_state_mapping = {
         DeliveryState.MOVING_TO_SOURCE: True,
@@ -274,18 +297,11 @@ def patch_delivery_with_json(id, data):
     }
 
     # Temporary fix for #54
-    if new[index][2].state in lock_state_mapping:
-        new_state = new[index][2].state
-        get_cache()['locked'] = lock_state_mapping[new_state]
+    if delivery.state in lock_state_mapping:
+        delivery.robot.lock = lock_state_mapping[state]
     else:
-        get_cache()['locked'] = False
+        delivery.robot.lock = False
 
-    if new[index][2].state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
-        get_cache()['challenge_token'] = generate_challenge_token()
-    if new[index][2].state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
-        get_cache()['challenge_token'] = generate_challenge_token()
-
-    get_cache()['deliveryQueue'] = new
     return delivery_get(id)
 
 
@@ -429,8 +445,12 @@ def robot_batch_get(id):
     response['motor'] = r.motor
     response['distance'] = r.distance
 
-    if 'challenge_token' in get_cache():
-        response['token'] = get_cache()['challenge_token']
+    if r.delivery is not None:
+        delivery = {}
+        delivery['state'] = r.delivery.state
+        delivery['senderAuthToken'] = r.delivery.senderAuthToken
+        delivery['receiverAuthToken'] = r.delivery.receiverAuthToken
+        response['delivery'] = delivery
 
     return jsonify(response)
 
@@ -582,8 +602,8 @@ def robot_lock_post(id):
 
 
 # Verify routes
-@app.route('/verify', methods = ['POST'])
-def verify_post():
+@app.route('/robot/<int:id>/verify', methods = ['POST'])
+def robot_verify_post(id):
     data = request.get_json(force=True)
 
     if 'token' not in data:
@@ -596,33 +616,25 @@ def verify_post():
     except InvalidBearerException as e:
         return unauthorized(e.message)
 
-    if data['token'] != get_cache()['challenge_token']:
+    trueToken = None
+    robotState = get_robot(id).delivery.state
+    if robotState == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
+        trueToken = get_robot(id).delivery.senderAuthToken
+    elif robotState == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
+        trueToken = get_robot(id).delivery.receiverAuthToken
+
+    if data['token'] != trueToken:
         return unauthorized("Challenge token doesn't match QR")
 
-    delivery = None
-    delivery_id = -1
-    for d in get_cache()['deliveryQueue']:
-        if (d[2].state == DeliveryState.AWAITING_AUTHENTICATION_SENDER or
-                d[2].state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER):
-            delivery = d[2]
-            delivery_id = d[1]
-            break
-
-    if delivery_id < 0:
-        return bad_request("No deliveries awaiting authentication")
-
+    delivery = get_robot(id).delivery
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         if delivery.sender == username:
-            del get_cache()['challenge_token']
-            patch_delivery_with_json(delivery_id, {"state":
-                                                   "AWAITING_PACKAGE_LOAD"})
+            delivery.state = DeliveryState.AWAITING_PACKAGE_LOAD
             return ''
 
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         if delivery.receiver == username:
-            del get_cache()['challenge_token']
-            patch_delivery_with_json(delivery_id,
-                                     {"state": "AWAITING_PACKAGE_RETRIEVAL"})
+            delivery.state = DeliveryState.AWAITING_PACKAGE_RETRIEVAL
             return ''
 
     return unauthorized("You are not allowed to open the box!")

@@ -480,7 +480,6 @@ class DeliveryGroupTest(TestCase):
         r = self.client.patch('/delivery/1', data = json.dumps({
             "state": "MOVING_TO_SOURCE", "robot": 0}))
         self.assertEquals(r.status_code, 400)
-        print(r.data)
 
     def test_patch_delivery_error_invalid_state(self):
         self.add_data_multiple()

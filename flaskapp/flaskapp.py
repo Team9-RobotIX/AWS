@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify, g
 import dataset
 import shelve
-import copy
 import random
 import string
 from flask_bcrypt import Bcrypt
@@ -206,27 +205,25 @@ def deliveries_post():
         d = Delivery(counter, fromTarget, toTarget, data['sender'],
                      data['receiver'], data['priority'], data['name'])
 
-    h = copy.deepcopy(get_cache()['deliveryQueue'])
+    h = get_cache()['deliveryQueue']
     h.append((d.priority, counter, d))
-    h = sorted(h, key = lambda x: (x[0], x[1]))
+    get_cache()['deliveryQueue'] = sorted(h, key = lambda x: (x[0], x[1]))
 
     get_cache()['deliveryQueueCounter'] += 1
-    get_cache()['deliveryQueue'] = h
-
     return delivery_get(counter)
 
 
 @app.route('/deliveries', methods = ['DELETE'])
 def deliveries_delete():
+    for delivery in get_cache()['deliveryQueue']:
+        if delivery[2].robot is not None:
+            id = delivery[2].robot.id
+            get_robot(id).delivery = None
+
     if 'deliveryQueue' in get_cache():
         get_cache()['deliveryQueue'] = []
-        get_cache()['deliveryQueueCounter'] = 0
-
-    if 'challenge_token' in get_cache():
-        del get_cache()['challenge_token']
 
     get_cache()['deliveryQueueCounter'] = 0
-
     return ''
 
 
@@ -274,6 +271,8 @@ def patch_delivery_with_json(id, data):
             return bad_request("Missing robot assignment")
         if not isinstance(data['robot'], int):
             return bad_request("Robot parameter must be ID")
+        if get_robot(data['robot']).delivery is not None:
+            return bad_request("This robot is busy on another delivery")
 
         delivery.robot = get_robot(data['robot'])
         delivery.robot.delivery = delivery
@@ -302,6 +301,9 @@ def patch_delivery_with_json(id, data):
     else:
         delivery.robot.lock = False
 
+    if state == DeliveryState.COMPLETE:
+        delivery.robot.delivery = None
+
     return delivery_get(id)
 
 
@@ -313,6 +315,9 @@ def delivery_delete(id):
     item = [x[2] for x in get_cache()['deliveryQueue'] if x[1] == id]
     if len(item) <= 0:
         return file_not_found("There's no delivery with that ID!")
+
+    if item[0].robot is not None:
+        item[0].robot.delivery = None
 
     items = [x for x in get_cache()['deliveryQueue'] if x[1] != id]
     get_cache()['deliveryQueue'] = items
@@ -629,12 +634,14 @@ def robot_verify_post(id):
     delivery = get_robot(id).delivery
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         if delivery.sender == username:
-            delivery.state = DeliveryState.AWAITING_PACKAGE_LOAD
+            patch_delivery_with_json(id, {
+                "state": "AWAITING_PACKAGE_LOAD"})
             return ''
 
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         if delivery.receiver == username:
-            delivery.state = DeliveryState.AWAITING_PACKAGE_RETRIEVAL
+            patch_delivery_with_json(id, {
+                "state": "AWAITING_PACKAGE_RETRIEVAL"})
             return ''
 
     return unauthorized("You are not allowed to open the box!")

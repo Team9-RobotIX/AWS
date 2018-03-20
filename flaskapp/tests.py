@@ -951,8 +951,15 @@ class VerifyTest(TestCase):
         self.clear_database()
         self.route = '/deliveries'
         self.client.delete(self.route)
+        r = self.client.get(self.route)
+        self.assertEquals(r.json, [])
+
+        for i in range(0, 5):
+            route = '/robot/' + str(i) + '/batch'
+            r = self.client.get(route)
+            self.assertTrue('delivery' not in r.json)
+
         self.create_dummy_targets()
-        self.client.delete(self.route)
         self.register_foo_and_foo2()
 
         loginData = {'username': 'foo', 'password': 'bar'}
@@ -1078,7 +1085,7 @@ class VerifyTest(TestCase):
     def test_post_verify_error_wrong_token(self):
         self.setup_delivery()
         self.simulate_delivery_state_changes(
-            "AWAITING_AUTHENTICATION_RECEIVER")
+            "AWAITING_AUTHENTICATION_SENDER")
         bearer = self.login("foo2", "bar2")
         token = "blahblah"
         r = self.execute_challenge(token, bearer)
@@ -1087,7 +1094,7 @@ class VerifyTest(TestCase):
     def test_post_verify_error_wrong_bearer(self):
         self.setup_delivery()
         self.simulate_delivery_state_changes(
-            "AWAITING_AUTHENTICATION_RECEIVER")
+            "AWAITING_AUTHENTICATION_SENDER")
         bearer = "foofoo"
         (_, token) = self.get_challenge_token()
         r = self.execute_challenge(token, bearer)

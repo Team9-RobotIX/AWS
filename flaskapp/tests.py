@@ -981,10 +981,16 @@ class VerifyTest(TestCase):
                              headers = {"Authorization": "Bearer " + bearer})
         self.assertEquals(r.status_code, 200)
 
+    def simulate_delivery_state_changes(self, finalState):
+        self.change_delivery_state("MOVING_TO_SOURCE")
+        # Add other states in for loop
+        self.change_delivery_state(finalState)
+
     def change_delivery_state(self, state):
         self.route = '/delivery/0'
         r = self.client.patch(self.route, data = json.dumps({
-            "state": state
+            "state": state,
+            "robot": 0
         }))
         self.assertEquals(r.status_code, 200)
 
@@ -1002,15 +1008,18 @@ class VerifyTest(TestCase):
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
 
-        if 'token' not in r.json:
-            return None
+        self.assertTrue('delivery' in r.json)
+        self.assertTrue('senderAuthToken' in r.json['delivery'])
+        self.assertTrue('receiverAuthToken' in r.json['delivery'])
 
-        token = r.json['token']
-        self.assertEquals(len(token), 10)
-        return token
+        senderToken = r.json['delivery']['senderAuthToken']
+        receiverToken = r.json['delivery']['receiverAuthToken']
+        self.assertEquals(len(senderToken), 10)
+        self.assertEquals(len(senderToken), 10)
+        return (senderToken, receiverToken)
 
     def execute_challenge(self, token, bearer):
-        self.route = '/verify'
+        self.route = '/robot/0/verify'
         headers = {'Authorization': 'Bearer ' + str(bearer)}
         data = {'token': token}
         r = self.client.post(self.route, data = json.dumps(data),
@@ -1019,9 +1028,9 @@ class VerifyTest(TestCase):
 
     def test_post_verify_auth_sender(self):
         self.setup_delivery()
-        self.change_delivery_state("AWAITING_AUTHENTICATION_SENDER")
+        self.simulate_delivery_state_changes("AWAITING_AUTHENTICATION_SENDER")
         bearer = self.login("foo", "bar")
-        token = self.get_challenge_token()
+        (token, _) = self.get_challenge_token()
         r = self.execute_challenge(token, bearer)
         self.assertEquals(r.status_code, 200)
 
@@ -1031,9 +1040,10 @@ class VerifyTest(TestCase):
 
     def test_post_verify_auth_receiver(self):
         self.setup_delivery()
-        self.change_delivery_state("AWAITING_AUTHENTICATION_RECEIVER")
+        self.simulate_delivery_state_changes(
+            "AWAITING_AUTHENTICATION_RECEIVER")
         bearer = self.login("foo2", "bar2")
-        token = self.get_challenge_token()
+        (_, token) = self.get_challenge_token()
         r = self.execute_challenge(token, bearer)
         self.assertEquals(r.status_code, 200)
 
@@ -1043,13 +1053,15 @@ class VerifyTest(TestCase):
 
     def test_post_verify_error_wrong_state(self):
         self.setup_delivery()
-        self.change_delivery_state("IN_QUEUE")
-        token = self.get_challenge_token()
-        self.assertEquals(token, None)
+        self.route = '/robot/0/batch'
+        r = self.client.get(self.route)
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' not in r.json)
 
     def test_post_verify_error_wrong_token(self):
         self.setup_delivery()
-        self.change_delivery_state("AWAITING_AUTHENTICATION_RECEIVER")
+        self.simulate_delivery_state_changes(
+            "AWAITING_AUTHENTICATION_RECEIVER")
         bearer = self.login("foo2", "bar2")
         token = "blahblah"
         r = self.execute_challenge(token, bearer)
@@ -1057,9 +1069,10 @@ class VerifyTest(TestCase):
 
     def test_post_verify_error_wrong_bearer(self):
         self.setup_delivery()
-        self.change_delivery_state("AWAITING_AUTHENTICATION_RECEIVER")
+        self.simulate_delivery_state_changes(
+            "AWAITING_AUTHENTICATION_RECEIVER")
         bearer = "foofoo"
-        token = self.get_challenge_token()
+        (_, token) = self.get_challenge_token()
         r = self.execute_challenge(token, bearer)
         self.assertEquals(r.status_code, 401)
 

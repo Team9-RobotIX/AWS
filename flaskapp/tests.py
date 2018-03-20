@@ -695,7 +695,7 @@ class RobotGroupTest(TestCase):
 
         self.check_batch_get_response_match(data)
 
-    def test_post_batch_changes(self):
+    def test_get_batch_changes_individually(self):
         data = {
             'angle': 0.0,
             'correction': 0.0,
@@ -723,7 +723,7 @@ class RobotGroupTest(TestCase):
 
         # Check 'distance' changes correctly
         data['distance'] = 99.0
-        r = self.post_correction(data['distance'])
+        r = self.post_distance(data['distance'])
         self.assertEquals(r.status_code, 200)
         self.check_batch_get_response_match(data)
 

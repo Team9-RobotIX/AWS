@@ -377,11 +377,24 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json['state'], 'IN_QUEUE')
         r = self.client.patch(self.route, data = json.dumps(
-            {"state": "MOVING_TO_SOURCE"}))
+            {"state": "MOVING_TO_SOURCE", "robot": 0}))
         self.assertEquals(r.status_code, 200)
+        self.assertTrue('state' in r.json)
+        self.assertTrue('robot' in r.json)
         self.assertEquals(r.json['state'], 'MOVING_TO_SOURCE')
+        self.assertEquals(r.json['robot'], 0)
 
-    def test_patch_delivery_invalid_state(self):
+        # Check that robot was assigned this delivery
+        self.route = '/robot/0/batch'
+        r = self.client.get(self.route)
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' in r.json)
+        self.assertTrue('senderAuthToken' in r.json['delivery'])
+        self.assertTrue('receiverAuthToken' in r.json['delivery'])
+        self.assertTrue('state' in r.json['delivery'])
+        self.assertEquals(r.json['delivery']['state'], "MOVING_TO_SOURCE")
+
+    def test_patch_delivery_error_invalid_state(self):
         self.add_data_multiple()
         self.post_data_multiple()
 

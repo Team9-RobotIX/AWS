@@ -5,7 +5,7 @@ import copy
 import random
 import string
 from flask_bcrypt import Bcrypt
-from classes import Delivery, Instruction, Target, DeliveryState
+from classes import Delivery, Robot, Target, DeliveryState
 from encoder import CustomJSONEncoder
 
 app = Flask(__name__)
@@ -142,7 +142,7 @@ def deliveries_post():
 
     # Error checking
     if 'name' not in data:
-        return bad_request("Must provide a name")
+        return bad_request("Must provde a name")
     if not isinstance(data['name'], basestring):        # NOQA
         return bad_request("Name must be string")
     if ('description' in data and not isinstance(data['description'], basestring)):        # NOQA
@@ -407,64 +407,26 @@ def target_delete(id):
 #                                         #
 #              ROBOT ROUTES               #
 #                                         #
+def get_robot(id):
+    if 'robots' not in get_cache():
+        get_cache()['robots'] = dict()
 
-# Instructions routes
-@app.route('/instructions', methods = ['GET'])
-def instructions_get():
-    if 'instructions' not in get_cache():
-        get_cache()['instructions'] = []
+    if id not in get_cache()['robots']:
+        get_cache()['robots'][id] = Robot(id)
 
-    return jsonify(get_cache()['instructions'])
-
-
-@app.route('/instructions', methods = ['POST'])
-def instructions_post():
-    if 'instructions' not in get_cache():
-        get_cache()['instructions'] = []
-
-    data = request.get_json(force=True)
-
-    new = copy.deepcopy(get_cache()['instructions'])
-    if(isinstance(data, list)):  # Multiple instructions to be added
-        for i in data:
-            new.append(Instruction.from_dict(i))
-    else:                        # Single instruction to be added
-        new.append(Instruction.from_dict(data))
-
-    get_cache()['instructions'] = new
-    return jsonify(get_cache()['instructions'])
-
-
-@app.route('/instructions', methods = ['DELETE'])
-def instructions_delete():
-    get_cache()['instructions'] = []
-    return ''
+    return get_cache()['robots'][id]
 
 
 # Batch instructions route
-@app.route('/instructions/batch', methods = ['GET'])
-def instructions_batch_get():
-    limit = request.values.get('limit')
-    if limit is None:
-        limit = len(get_cache()['instructions'])
-
-    try:
-        limit = int(limit)
-    except Exception as e:
-        return bad_request("Limit has to be positive integer")
-
-    if 'instructions' not in get_cache():
-        get_cache()['instructions'] = []
-    elif len(get_cache()['instructions']) > 0 and limit <= 0:
-        return bad_request("Limit has to be positive integer")
-
-    instructions = get_cache()['instructions'][:limit]
-
+@app.route('/robot/<int:id>/batch', methods = ['GET'])
+def robot_batch_get(id):
     response = {}
-    response['instructions'] = instructions
 
-    if 'correction' in get_cache():
-        response['correction'] = {'angle': get_cache()['correction']}
+    r = get_robot(id)
+    response['correction'] = r.correction
+    response['angle'] = r.angle
+    response['motor'] = r.motor
+    response['distance'] = r.distance
 
     if 'challenge_token' in get_cache():
         response['token'] = get_cache()['challenge_token']
@@ -472,84 +434,104 @@ def instructions_batch_get():
     return jsonify(response)
 
 
-# Instruction routes
-@app.route('/instruction/<int:index>', methods = ['GET'])
-def instruction_get(index):
-    if 'instructions' not in get_cache():
-        return file_not_found("This instruction does not exist")
-    elif index >= len(get_cache()['instructions']) or index < 0:
-        return file_not_found("This instruction does not exist")
-
-    return jsonify(get_cache()['instructions'][index])
-
-
-@app.route('/instruction/<int:index>', methods = ['DELETE'])
-def instruction_delete(index):
-    if 'instructions' not in get_cache():
-        return file_not_found("This instruction does not exist")
-    elif index >= len(get_cache()['instructions']) or index < 0:
-        return file_not_found("This instruction does not exist")
-
-    get_cache()['instructions'] = (get_cache()['instructions'][:index] +
-                                   get_cache()['instructions'][index + 1:])
-
-    return ''
-
-
 # Correction routes
-@app.route('/correction', methods = ['GET'])
-def correction_get():
-    if 'correction' not in get_cache():
-        return file_not_found("No correction has been issued!")
-
-    return jsonify({'angle': get_cache()['correction']})
+@app.route('/robot/<int:id>/correction', methods = ['GET'])
+def robot_correction_get(id):
+    r = get_robot(id)
+    return jsonify({'correction': r.correction})
 
 
-@app.route('/correction', methods = ['POST'])
-def correction_post():
-    if 'correction' in get_cache():
-        return bad_request("A correction has already been issued!")
+@app.route('/robot/<int:id>/correction', methods = ['POST'])
+def robot_correction_post(id):
+    data = request.get_json(force=True)
+    if 'correction' not in data:
+        return bad_request("You have not supplied a correction angle!")
+    elif not isinstance(data['correction'], float):
+        return bad_request("Supplied angle is not a float")
 
+    r = get_robot(id)
+    r.correction = data['correction']
+    return robot_correction_get(id)
+
+
+# Angle routes
+@app.route('/robot/<int:id>/angle', methods = ['GET'])
+def robot_angle_get(id):
+    r = get_robot(id)
+    return jsonify({'angle': r.angle})
+
+
+@app.route('/robot/<int:id>/angle', methods = ['POST'])
+def robot_angle_post(id):
     data = request.get_json(force=True)
     if 'angle' not in data:
-        return bad_request("You have not supplied a correction angle!")
+        return bad_request("You have not supplied an angle!")
     elif not isinstance(data['angle'], float):
         return bad_request("Supplied angle is not a float")
 
-    get_cache()['correction'] = data['angle']
-    return jsonify({'angle': get_cache()['correction']})
+    r = get_robot(id)
+    r.angle = data['angle']
+    return robot_angle_get(id)
 
 
-@app.route('/correction', methods = ['DELETE'])
-def correction_delete():
-    if 'correction' not in get_cache():
-        return file_not_found("No correction has been issued!")
+# Distance routes
+@app.route('/robot/<int:id>/distance', methods = ['GET'])
+def robot_distance_get(id):
+    r = get_robot(id)
+    return jsonify({'distance': r.distance})
 
-    del get_cache()['correction']
-    return ''
+
+@app.route('/robot/<int:id>/distance', methods = ['POST'])
+def robot_distance_post(id):
+    data = request.get_json(force=True)
+    if 'distance' not in data:
+        return bad_request("You have not supplied a distance!")
+    elif not isinstance(data['distance'], float):
+        return bad_request("Supplied distance is not a float")
+
+    r = get_robot(id)
+    r.distance = data['distance']
+    return robot_distance_get(id)
+
+
+# Motor routes
+@app.route('/robot/<int:id>/motor', methods = ['GET'])
+def robot_motor_get(id):
+    r = get_robot(id)
+    return jsonify({'motor': r.motor})
+
+
+@app.route('/robot/<int:id>/motor', methods = ['POST'])
+def robot_motor_post(id):
+    data = request.get_json(force=True)
+    if 'motor' not in data:
+        return bad_request("You have not supplied a motor state!")
+    elif not isinstance(data['motor'], bool):
+        return bad_request("Supplied motor state is not a bool")
+
+    r = get_robot(id)
+    r.motor = data['motor']
+    return robot_motor_get(id)
 
 
 # Lock routes
-@app.route('/lock', methods = ['GET'])
-def lock_get():
-    if 'locked' not in get_cache():
-        get_cache()['locked'] = False
-
-    return jsonify({'locked': get_cache()['locked']})
+@app.route('/robot/<int:id>/lock', methods = ['GET'])
+def robot_lock_get(id):
+    r = get_robot(id)
+    return jsonify({'lock': r.lock})
 
 
-@app.route('/lock', methods = ['POST'])
-def lock_post():
+@app.route('/robot/<int:id>/lock', methods = ['POST'])
+def robot_lock_post(id):
     data = request.get_json(force=True)
+    if 'lock' not in data:
+        return bad_request("You have not supplied a lock state!")
+    elif not isinstance(data['lock'], bool):
+        return bad_request("Supplied lock state is not a bool")
 
-    if 'locked' not in data:
-        return bad_request("Must supply a state for the lock.")
-    elif not isinstance(data['locked'], bool):
-        return bad_request("Invalid lock state supplied.")
-
-    get_cache()['locked'] = data['locked']
-
-    return jsonify({'locked': get_cache()['locked']})
+    r = get_robot(id)
+    r.lock = data['lock']
+    return robot_lock_get(id)
 
 
 # Verify routes

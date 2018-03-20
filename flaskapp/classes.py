@@ -121,3 +121,13 @@ class Target:
             color = obj['color']
 
         return Target(id, name, description, color)
+
+
+class Robot:
+    def __init__(self, id):
+        self.id = id
+        self.motor = False
+        self.angle = 0.0
+        self.distance = 0.0
+        self.correction = 0.0
+        self.lock = False

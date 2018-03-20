@@ -244,9 +244,6 @@ def patch_delivery_with_json(id, data):
     if 'deliveryQueue' not in get_cache():
         get_cache()['deliveryQueue'] = []
 
-    if 'deliveryQueue' not in get_cache():
-        get_cache()['deliveryQueue'] = []
-
     index = -1
     for idx, d in enumerate(get_cache()['deliveryQueue']):
         if d[1] == id:

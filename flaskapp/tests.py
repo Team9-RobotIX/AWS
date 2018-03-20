@@ -998,7 +998,7 @@ class VerifyTest(TestCase):
         return r.json['bearer']
 
     def get_challenge_token(self):
-        self.route = '/instructions/batch'
+        self.route = '/robot/0/batch'
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
 

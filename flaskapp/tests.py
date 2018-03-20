@@ -995,9 +995,13 @@ class VerifyTest(TestCase):
         self.assertEquals(r.status_code, 200)
 
     def simulate_delivery_state_changes(self, finalState):
-        self.change_delivery_state("MOVING_TO_SOURCE")
-        # Add other states in for loop
-        self.change_delivery_state(finalState)
+        states = ["MOVING_TO_SOURCE", "AWAITING_AUTHENTICATION_SENDER",
+                  "AWAITING_PACKAGE_LOAD", "PACKAGE_LOAD_COMPLETE",
+                  "MOVING_TO_DESTINATION", "AWAITING_AUTHENTICATION_RECEIVER",
+                  "AWAITING_PACKAGE_RETRIEVAL", "PACKAGE_RETRIEVAL_COMPLETE",
+                  "COMPLETE"]
+        for s in states[:states.index(finalState) + 1]:
+            self.change_delivery_state(s)
 
     def change_delivery_state(self, state):
         self.route = '/delivery/0'

@@ -649,8 +649,8 @@ def custom_401(error):
 
 
 def main():
-    app.run()
+    app.run(host=app.config['HOST'])
 
 
 if __name__ == '__main__':
-    app.run()
+    main()

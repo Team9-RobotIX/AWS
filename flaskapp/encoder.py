@@ -36,6 +36,9 @@ class CustomJSONEncoder(JSONEncoder):
                 'receiver': obj.receiver
             }
 
+            if obj.robot is not None:
+                res['robot'] = obj.robot.id
+
             if obj.description is not None:
                 res['description'] = obj.description
 

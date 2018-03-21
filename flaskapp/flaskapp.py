@@ -1,11 +1,10 @@
 from flask import Flask, request, jsonify, g
 import dataset
 import shelve
-import copy
 import random
 import string
 from flask_bcrypt import Bcrypt
-from classes import Delivery, Instruction, Target, DeliveryState
+from classes import Delivery, Robot, Target, DeliveryState
 from encoder import CustomJSONEncoder
 
 app = Flask(__name__)
@@ -26,7 +25,8 @@ def get_cache():
     It can store arbitrary objects.
     """
     if not hasattr(g, 'cache'):
-        g.cache = shelve.open(app.config['SHELVE_FILENAME'], protocol=2)
+        g.cache = shelve.open(app.config['SHELVE_FILENAME'], protocol=2,
+                              writeback=True)
     return g.cache
 
 
@@ -38,6 +38,10 @@ def generate_bearer_token():
 def generate_challenge_token():
     return ''.join([random.choice(string.ascii_letters + string.digits)
                     for n in range(10)])
+
+
+class BadRequestException(Exception):
+    pass
 
 
 class InvalidBearerException(Exception):
@@ -60,6 +64,15 @@ def get_username(headers):
         raise InvalidBearerException("This bearer token is invalid.")
 
     return user['username']
+
+
+@app.before_first_request
+def startup():
+    if 'DEBUG' not in app.config or not app.config['DEBUG']:
+        print('Clearing cache...')
+        get_cache().clear()
+    else:
+        print('Skipping cache clear as we are running in debug mode.')
 
 
 @app.teardown_appcontext
@@ -147,7 +160,7 @@ def deliveries_post():
 
     # Error checking
     if 'name' not in data:
-        return bad_request("Must provide a name")
+        return bad_request("Must provde a name")
     if not isinstance(data['name'], basestring):        # NOQA
         return bad_request("Name must be string")
     if ('description' in data and not isinstance(data['description'], basestring)):        # NOQA
@@ -198,27 +211,25 @@ def deliveries_post():
         d = Delivery(counter, fromTarget, toTarget, data['sender'],
                      data['receiver'], data['priority'], data['name'])
 
-    h = copy.deepcopy(get_cache()['deliveryQueue'])
+    h = get_cache()['deliveryQueue']
     h.append((d.priority, counter, d))
-    h = sorted(h, key = lambda x: (x[0], x[1]))
+    get_cache()['deliveryQueue'] = sorted(h, key = lambda x: (x[0], x[1]))
 
     get_cache()['deliveryQueueCounter'] += 1
-    get_cache()['deliveryQueue'] = h
-
     return delivery_get(counter)
 
 
 @app.route('/deliveries', methods = ['DELETE'])
 def deliveries_delete():
+    for delivery in get_cache()['deliveryQueue']:
+        if delivery[2].robot is not None:
+            id = delivery[2].robot.id
+            get_robot(id).delivery = None
+
     if 'deliveryQueue' in get_cache():
         get_cache()['deliveryQueue'] = []
-        get_cache()['deliveryQueueCounter'] = 0
-
-    if 'challenge_token' in get_cache():
-        del get_cache()['challenge_token']
 
     get_cache()['deliveryQueueCounter'] = 0
-
     return ''
 
 
@@ -245,9 +256,6 @@ def patch_delivery_with_json(id, data):
     if 'deliveryQueue' not in get_cache():
         get_cache()['deliveryQueue'] = []
 
-    if 'deliveryQueue' not in get_cache():
-        get_cache()['deliveryQueue'] = []
-
     index = -1
     for idx, d in enumerate(get_cache()['deliveryQueue']):
         if d[1] == id:
@@ -262,8 +270,24 @@ def patch_delivery_with_json(id, data):
     if data['state'] not in [e.name for e in DeliveryState]:
         return bad_request("Invalid state")
 
-    new = copy.deepcopy(get_cache()['deliveryQueue'])
-    new[index][2].state = DeliveryState[data['state']]
+    delivery = get_cache()['deliveryQueue'][index][2]
+    state = DeliveryState[data['state']]
+    if state == DeliveryState.MOVING_TO_SOURCE:
+        if 'robot' not in data:
+            return bad_request("Missing robot assignment")
+        if not isinstance(data['robot'], int):
+            return bad_request("Robot parameter must be ID")
+        if get_robot(data['robot']).delivery is not None:
+            return bad_request("This robot is busy on another delivery")
+
+        delivery.robot = get_robot(data['robot'])
+        delivery.robot.delivery = delivery
+
+    delivery.state = state
+
+    if state == DeliveryState.MOVING_TO_SOURCE:
+        delivery.senderAuthToken = generate_challenge_token()
+        delivery.receiverAuthToken = generate_challenge_token()
 
     lock_state_mapping = {
         DeliveryState.MOVING_TO_SOURCE: True,
@@ -278,18 +302,14 @@ def patch_delivery_with_json(id, data):
     }
 
     # Temporary fix for #54
-    if new[index][2].state in lock_state_mapping:
-        new_state = new[index][2].state
-        get_cache()['locked'] = lock_state_mapping[new_state]
+    if delivery.state in lock_state_mapping:
+        delivery.robot.lock = lock_state_mapping[state]
     else:
-        get_cache()['locked'] = False
+        delivery.robot.lock = False
 
-    if new[index][2].state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
-        get_cache()['challenge_token'] = generate_challenge_token()
-    if new[index][2].state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
-        get_cache()['challenge_token'] = generate_challenge_token()
+    if state == DeliveryState.COMPLETE:
+        delivery.robot.delivery = None
 
-    get_cache()['deliveryQueue'] = new
     return delivery_get(id)
 
 
@@ -301,6 +321,9 @@ def delivery_delete(id):
     item = [x[2] for x in get_cache()['deliveryQueue'] if x[1] == id]
     if len(item) <= 0:
         return file_not_found("There's no delivery with that ID!")
+
+    if item[0].robot is not None:
+        item[0].robot.delivery = None
 
     items = [x for x in get_cache()['deliveryQueue'] if x[1] != id]
     get_cache()['deliveryQueue'] = items
@@ -412,154 +435,186 @@ def target_delete(id):
 #                                         #
 #              ROBOT ROUTES               #
 #                                         #
+def get_robot(id):
+    if 'robots' not in get_cache():
+        get_cache()['robots'] = dict()
 
-# Instructions routes
-@app.route('/instructions', methods = ['GET'])
-def instructions_get():
-    if 'instructions' not in get_cache():
-        get_cache()['instructions'] = []
+    if id not in get_cache()['robots']:
+        get_cache()['robots'][id] = Robot(id)
 
-    return jsonify(get_cache()['instructions'])
-
-
-@app.route('/instructions', methods = ['POST'])
-def instructions_post():
-    if 'instructions' not in get_cache():
-        get_cache()['instructions'] = []
-
-    data = request.get_json(force=True)
-
-    new = copy.deepcopy(get_cache()['instructions'])
-    if(isinstance(data, list)):  # Multiple instructions to be added
-        for i in data:
-            new.append(Instruction.from_dict(i))
-    else:                        # Single instruction to be added
-        new.append(Instruction.from_dict(data))
-
-    get_cache()['instructions'] = new
-    return jsonify(get_cache()['instructions'])
-
-
-@app.route('/instructions', methods = ['DELETE'])
-def instructions_delete():
-    get_cache()['instructions'] = []
-    return ''
+    return get_cache()['robots'][id]
 
 
 # Batch instructions route
-@app.route('/instructions/batch', methods = ['GET'])
-def instructions_batch_get():
-    limit = request.values.get('limit')
-    if limit is None:
-        limit = len(get_cache()['instructions'])
-
-    try:
-        limit = int(limit)
-    except Exception as e:
-        return bad_request("Limit has to be positive integer")
-
-    if 'instructions' not in get_cache():
-        get_cache()['instructions'] = []
-    elif len(get_cache()['instructions']) > 0 and limit <= 0:
-        return bad_request("Limit has to be positive integer")
-
-    instructions = get_cache()['instructions'][:limit]
-
+@app.route('/robot/<int:id>/batch', methods = ['GET'])
+def robot_batch_get(id):
     response = {}
-    response['instructions'] = instructions
 
-    if 'correction' in get_cache():
-        response['correction'] = {'angle': get_cache()['correction']}
+    r = get_robot(id)
+    response['correction'] = r.correction
+    response['angle'] = r.angle
+    response['motor'] = r.motor
+    response['distance'] = r.distance
 
-    if 'challenge_token' in get_cache():
-        response['token'] = get_cache()['challenge_token']
+    if r.delivery is not None:
+        delivery = {}
+        delivery['state'] = r.delivery.state
+        delivery['senderAuthToken'] = r.delivery.senderAuthToken
+        delivery['receiverAuthToken'] = r.delivery.receiverAuthToken
+        response['delivery'] = delivery
 
     return jsonify(response)
 
 
-# Instruction routes
-@app.route('/instruction/<int:index>', methods = ['GET'])
-def instruction_get(index):
-    if 'instructions' not in get_cache():
-        return file_not_found("This instruction does not exist")
-    elif index >= len(get_cache()['instructions']) or index < 0:
-        return file_not_found("This instruction does not exist")
-
-    return jsonify(get_cache()['instructions'][index])
-
-
-@app.route('/instruction/<int:index>', methods = ['DELETE'])
-def instruction_delete(index):
-    if 'instructions' not in get_cache():
-        return file_not_found("This instruction does not exist")
-    elif index >= len(get_cache()['instructions']) or index < 0:
-        return file_not_found("This instruction does not exist")
-
-    get_cache()['instructions'] = (get_cache()['instructions'][:index] +
-                                   get_cache()['instructions'][index + 1:])
-
-    return ''
+@app.route('/robot/<int:id>/batch', methods = ['POST'])
+def robot_batch_post(id):
+    data = request.get_json(force=True)
+    robot_update_correction(id, data)
+    robot_update_distance(id, data)
+    robot_update_motor(id, data)
+    robot_update_angle(id, data)
+    return robot_batch_get(id)
 
 
 # Correction routes
-@app.route('/correction', methods = ['GET'])
-def correction_get():
-    if 'correction' not in get_cache():
-        return file_not_found("No correction has been issued!")
-
-    return jsonify({'angle': get_cache()['correction']})
+@app.route('/robot/<int:id>/correction', methods = ['GET'])
+def robot_correction_get(id):
+    r = get_robot(id)
+    return jsonify({'correction': r.correction})
 
 
-@app.route('/correction', methods = ['POST'])
-def correction_post():
-    if 'correction' in get_cache():
-        return bad_request("A correction has already been issued!")
+def robot_update_correction(id, data):
+    if 'correction' not in data:
+        raise BadRequestException("You have not supplied a correction angle!")
+    elif not isinstance(data['correction'], float):
+        raise BadRequestException("Supplied angle is not a float")
 
+    r = get_robot(id)
+    r.correction = data['correction']
+
+
+@app.route('/robot/<int:id>/correction', methods = ['POST'])
+def robot_correction_post(id):
     data = request.get_json(force=True)
+
+    try:
+        robot_update_correction(id, data)
+    except BadRequestException as e:
+        return bad_request(e.message)
+
+    return robot_correction_get(id)
+
+
+# Angle routes
+@app.route('/robot/<int:id>/angle', methods = ['GET'])
+def robot_angle_get(id):
+    r = get_robot(id)
+    return jsonify({'angle': r.angle})
+
+
+def robot_update_angle(id, data):
     if 'angle' not in data:
-        return bad_request("You have not supplied a correction angle!")
+        raise BadRequestException("You have not supplied an angle!")
     elif not isinstance(data['angle'], float):
-        return bad_request("Supplied angle is not a float")
+        raise BadRequestException("Supplied angle is not a float")
 
-    get_cache()['correction'] = data['angle']
-    return jsonify({'angle': get_cache()['correction']})
+    r = get_robot(id)
+    r.angle = data['angle']
 
 
-@app.route('/correction', methods = ['DELETE'])
-def correction_delete():
-    if 'correction' not in get_cache():
-        return file_not_found("No correction has been issued!")
+@app.route('/robot/<int:id>/angle', methods = ['POST'])
+def robot_angle_post(id):
+    data = request.get_json(force=True)
 
-    del get_cache()['correction']
-    return ''
+    try:
+        robot_update_angle(id, data)
+    except BadRequestException as e:
+        return bad_request(e.message)
+
+    return robot_angle_get(id)
+
+
+# Distance routes
+@app.route('/robot/<int:id>/distance', methods = ['GET'])
+def robot_distance_get(id):
+    r = get_robot(id)
+    return jsonify({'distance': r.distance})
+
+
+def robot_update_distance(id, data):
+    if 'distance' not in data:
+        raise BadRequestException("You have not supplied a distance!")
+    elif not isinstance(data['distance'], float):
+        raise BadRequestException("Supplied distance is not a float")
+
+    r = get_robot(id)
+    r.distance = data['distance']
+
+
+@app.route('/robot/<int:id>/distance', methods = ['POST'])
+def robot_distance_post(id):
+    data = request.get_json(force=True)
+
+    try:
+        robot_update_distance(id, data)
+    except BadRequestException as e:
+        return bad_request(e.message)
+
+    return robot_distance_get(id)
+
+
+# Motor routes
+@app.route('/robot/<int:id>/motor', methods = ['GET'])
+def robot_motor_get(id):
+    r = get_robot(id)
+    return jsonify({'motor': r.motor})
+
+
+def robot_update_motor(id, data):
+    if 'motor' not in data:
+        raise BadRequestException("You have not supplied a motor state!")
+    elif not isinstance(data['motor'], bool):
+        raise BadRequestException("Supplied motor state is not a bool")
+
+    r = get_robot(id)
+    r.motor = data['motor']
+
+
+@app.route('/robot/<int:id>/motor', methods = ['POST'])
+def robot_motor_post(id):
+    data = request.get_json(force=True)
+
+    try:
+        robot_update_motor(id, data)
+    except BadRequestException as e:
+        return bad_request(e.message)
+
+    return robot_motor_get(id)
 
 
 # Lock routes
-@app.route('/lock', methods = ['GET'])
-def lock_get():
-    if 'locked' not in get_cache():
-        get_cache()['locked'] = False
-
-    return jsonify({'locked': get_cache()['locked']})
+@app.route('/robot/<int:id>/lock', methods = ['GET'])
+def robot_lock_get(id):
+    r = get_robot(id)
+    return jsonify({'lock': r.lock})
 
 
-@app.route('/lock', methods = ['POST'])
-def lock_post():
+@app.route('/robot/<int:id>/lock', methods = ['POST'])
+def robot_lock_post(id):
     data = request.get_json(force=True)
+    if 'lock' not in data:
+        return bad_request("You have not supplied a lock state!")
+    elif not isinstance(data['lock'], bool):
+        return bad_request("Supplied lock state is not a bool")
 
-    if 'locked' not in data:
-        return bad_request("Must supply a state for the lock.")
-    elif not isinstance(data['locked'], bool):
-        return bad_request("Invalid lock state supplied.")
-
-    get_cache()['locked'] = data['locked']
-
-    return jsonify({'locked': get_cache()['locked']})
+    r = get_robot(id)
+    r.lock = data['lock']
+    return robot_lock_get(id)
 
 
 # Verify routes
-@app.route('/verify', methods = ['POST'])
-def verify_post():
+@app.route('/robot/<int:id>/verify', methods = ['POST'])
+def robot_verify_post(id):
     data = request.get_json(force=True)
 
     if 'token' not in data:
@@ -572,33 +627,27 @@ def verify_post():
     except InvalidBearerException as e:
         return unauthorized(e.message)
 
-    if data['token'] != get_cache()['challenge_token']:
+    trueToken = None
+    robotState = get_robot(id).delivery.state
+    if robotState == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
+        trueToken = get_robot(id).delivery.senderAuthToken
+    elif robotState == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
+        trueToken = get_robot(id).delivery.receiverAuthToken
+
+    if data['token'] != trueToken:
         return unauthorized("Challenge token doesn't match QR")
 
-    delivery = None
-    delivery_id = -1
-    for d in get_cache()['deliveryQueue']:
-        if (d[2].state == DeliveryState.AWAITING_AUTHENTICATION_SENDER or
-                d[2].state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER):
-            delivery = d[2]
-            delivery_id = d[1]
-            break
-
-    if delivery_id < 0:
-        return bad_request("No deliveries awaiting authentication")
-
+    delivery = get_robot(id).delivery
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         if delivery.sender == username:
-            del get_cache()['challenge_token']
-            patch_delivery_with_json(delivery_id, {"state":
-                                                   "AWAITING_PACKAGE_LOAD"})
+            patch_delivery_with_json(id, {
+                "state": "AWAITING_PACKAGE_LOAD"})
             return ''
 
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         if delivery.receiver == username:
-            del get_cache()['challenge_token']
-            patch_delivery_with_json(delivery_id,
-                                     {"state": "AWAITING_PACKAGE_RETRIEVAL"})
+            patch_delivery_with_json(id, {
+                "state": "AWAITING_PACKAGE_RETRIEVAL"})
             return ''
 
     return unauthorized("You are not allowed to open the box!")
@@ -655,8 +704,8 @@ def custom_401(error):
 
 
 def main():
-    app.run()
+    app.run(host=app.config['HOST'])
 
 
 if __name__ == '__main__':
-    app.run()
+    main()

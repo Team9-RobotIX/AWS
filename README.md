@@ -1,4 +1,4 @@
-# AWS
+# FloBot Server
 
 [![Coverage Status](https://coveralls.io/repos/github/Team9-RobotIX/AWS/badge.svg)](https://coveralls.io/github/Team9-RobotIX/AWS)
 [![Build Status](https://travis-ci.org/Team9-RobotIX/AWS.svg?branch=master)](https://travis-ci.org/Team9-RobotIX/AWS)
@@ -11,7 +11,9 @@ These instructions will get you a copy of the project up and running on your loc
 
 ### Prerequisites
 
-To run this project, you will need Python 2.7.
+To run this project, you will need Python 2.7. We recommend setting up a miniconda environment and installing the required dependencies directly to it.
+
+Moreover, you will need to have SQLite3 installed.
 
 ### Installing
 
@@ -25,8 +27,7 @@ to setup the development environment:
 Once you've setup your development environment, you can start the server by running:
 
 ```
-export FLASK_APP=flaskapp/flaskapp.py
-flask run
+python flaskapp/flaskapp.py
 ```
 
 ## Running the tests

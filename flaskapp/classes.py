@@ -21,7 +21,8 @@ class Delivery:
     def __init__(self, id, fromTarget, toTarget, sender, receiver,
                  priority, name, description = None,
                  state = DeliveryState.IN_QUEUE,
-                 minTemp = None, maxTemp = None, timeLimit = None):
+                 minTemp = None, maxTemp = None, timeLimit = None,
+                 robot = None):
         self.id = id
         self.fromTarget = fromTarget
         self.toTarget = toTarget
@@ -30,6 +31,9 @@ class Delivery:
         self.priority = priority
         self.sender = sender
         self.receiver = receiver
+        self.robot = robot
+        self.senderAuthToken = None
+        self.receiverAuthToken = None
 
         self.state = state
         self.minTemp = minTemp
@@ -121,3 +125,14 @@ class Target:
             color = obj['color']
 
         return Target(id, name, description, color)
+
+
+class Robot:
+    def __init__(self, id):
+        self.id = id
+        self.motor = False
+        self.angle = 0.0
+        self.distance = 0.0
+        self.correction = 0.0
+        self.lock = False
+        self.delivery = None

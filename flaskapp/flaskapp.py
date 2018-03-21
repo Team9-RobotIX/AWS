@@ -81,6 +81,12 @@ def close_cache(error):
         g.cache.close()
 
 
+@app.route('/', methods = ['GET'])
+def root():
+    return 'Congratulations! You have successfully setup RobotIX\'s \
+        web server!'
+
+
 # Reads the stored values and outputs them.
 @app.route('/login', methods = ['POST'])
 def login():

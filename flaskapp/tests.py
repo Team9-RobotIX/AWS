@@ -117,6 +117,7 @@ class DeliveryGroupTest(TestCase):
     def setUp(self):
         self.clear_database()
         self.route = '/deliveries'
+        self.client.delete(self.route)
         self.create_dummy_targets()
         self.client.delete(self.route)
         self.register_foo_and_foo2()
@@ -229,6 +230,23 @@ class DeliveryGroupTest(TestCase):
         for i in range(0, len(r.json)):
             self.check_delivery_response_match(r.json[i], self.data[i])
 
+    def simulate_delivery_state_changes(self, finalState, robotId, deliveryId):
+        states = ["MOVING_TO_SOURCE", "AWAITING_AUTHENTICATION_SENDER",
+                  "AWAITING_PACKAGE_LOAD", "PACKAGE_LOAD_COMPLETE",
+                  "MOVING_TO_DESTINATION", "AWAITING_AUTHENTICATION_RECEIVER",
+                  "AWAITING_PACKAGE_RETRIEVAL", "PACKAGE_RETRIEVAL_COMPLETE",
+                  "COMPLETE"]
+        for s in states[:states.index(finalState) + 1]:
+            self.change_delivery_state(s, robotId, deliveryId)
+
+    def change_delivery_state(self, state, robotId, deliveryId):
+        route = '/delivery/' + str(deliveryId)
+        r = self.client.patch(route, data = json.dumps({
+            "state": state,
+            "robot": robotId
+        }))
+        self.assertEquals(r.status_code, 200)
+
     # Deliveries route
     def test_get_deliveries_empty(self):
         r = self.client.get(self.route)
@@ -328,6 +346,42 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, [])
 
+    def test_delete_deliveries_clears_all_assignments(self):
+        self.add_data_triple()
+        deliveries = []
+
+        # Assign robots to deliveries
+        for id in range(0, 3):
+            route = '/deliveries'
+            r = self.client.post(route, data = json.dumps(self.data[id]),
+                                 headers = self.headers)
+            self.assertEquals(r.status_code, 200)
+            delivery_id = r.json['id']
+            deliveries.append(delivery_id)
+
+            route = '/delivery/' + str(delivery_id)
+            r = self.client.patch(route, data = json.dumps({
+                "state": "MOVING_TO_SOURCE",
+                "robot": id
+            }))
+            self.assertEquals(r.status_code, 200)
+
+            route = '/robot/' + str(id) + '/batch'
+            r = self.client.get(route)
+            self.assertEquals(r.status_code, 200)
+            self.assertTrue('delivery' in r.json)
+
+        # Run delete on deliveries
+        r = self.client.delete(self.route)
+        self.assertEquals(r.status_code, 200)
+
+        # Check the robots have been deassigned
+        for id in range(0, 3):
+            route = '/robot/' + str(id) + '/batch'
+            r = self.client.get(route)
+            self.assertEquals(r.status_code, 200)
+            self.assertTrue('delivery' not in r.json)
+
     def test_post_deliveries_unique_id(self):
         self.add_data_multiple()
         self.post_data_multiple()
@@ -347,7 +401,7 @@ class DeliveryGroupTest(TestCase):
         self.add_data_multiple()
         self.post_data_multiple()
 
-        self.route = 'delivery/0'
+        self.route = '/delivery/0'
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.check_delivery_response_match(r.json, self.data[0])
@@ -377,11 +431,57 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json['state'], 'IN_QUEUE')
         r = self.client.patch(self.route, data = json.dumps(
-            {"state": "MOVING_TO_SOURCE"}))
+            {"state": "MOVING_TO_SOURCE", "robot": 0}))
         self.assertEquals(r.status_code, 200)
+        self.assertTrue('state' in r.json)
+        self.assertTrue('robot' in r.json)
         self.assertEquals(r.json['state'], 'MOVING_TO_SOURCE')
+        self.assertEquals(r.json['robot'], 0)
 
-    def test_patch_delivery_invalid_state(self):
+        # Check that robot was assigned this delivery
+        self.route = '/robot/0/batch'
+        r = self.client.get(self.route)
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' in r.json)
+        self.assertTrue('senderAuthToken' in r.json['delivery'])
+        self.assertTrue('receiverAuthToken' in r.json['delivery'])
+        self.assertTrue('state' in r.json['delivery'])
+        self.assertEquals(r.json['delivery']['state'], "MOVING_TO_SOURCE")
+
+    def test_patch_delivery_to_complete_clears_robot_assignment(self):
+        self.add_data_single()
+        r = self.post_data_single()
+        self.assertEquals(r.status_code, 200)
+        self.simulate_delivery_state_changes("PACKAGE_RETRIEVAL_COMPLETE",
+                                             0, 0)
+
+        r = self.client.get('/robot/0/batch')
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' in r.json)
+
+        r = self.client.patch('/delivery/0', data = json.dumps({
+            "state": "COMPLETE"}))
+        self.assertEquals(r.status_code, 200)
+
+        r = self.client.get('/robot/0/batch')
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' not in r.json)
+
+    def test_patch_delivery_error_robot_occupied(self):
+        self.add_data_multiple()
+        self.post_data_multiple()  # 0 and 1
+
+        self.simulate_delivery_state_changes("MOVING_TO_SOURCE",
+                                             0, 0)
+        r = self.client.get('/robot/0/batch')
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' in r.json)
+
+        r = self.client.patch('/delivery/1', data = json.dumps({
+            "state": "MOVING_TO_SOURCE", "robot": 0}))
+        self.assertEquals(r.status_code, 400)
+
+    def test_patch_delivery_error_invalid_state(self):
         self.add_data_multiple()
         self.post_data_multiple()
 
@@ -422,6 +522,41 @@ class DeliveryGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 404)
+
+    def test_delete_delivery_assigned_to_robot_clears_assignment(self):
+        self.add_data_triple()
+        deliveries = []
+
+        # Assign robots to deliveries
+        for id in range(0, 3):
+            route = '/deliveries'
+            r = self.client.post(route, data = json.dumps(self.data[id]),
+                                 headers = self.headers)
+            self.assertEquals(r.status_code, 200)
+            delivery_id = r.json['id']
+            deliveries.append(delivery_id)
+
+            route = '/delivery/' + str(delivery_id)
+            r = self.client.patch(route, data = json.dumps({
+                "state": "MOVING_TO_SOURCE",
+                "robot": id
+            }))
+            self.assertEquals(r.status_code, 200)
+
+            route = '/robot/' + str(id) + '/batch'
+            r = self.client.get(route)
+            self.assertEquals(r.status_code, 200)
+            self.assertTrue('delivery' in r.json)
+
+        # Run delete on deliveries and check the robots have been deassigned
+        for id in range(0, 3):
+            route = '/delivery/' + str(id)
+            r = self.client.delete(route)
+            self.assertEquals(r.status_code, 200)
+            route = '/robot/' + str(id) + '/batch'
+            r = self.client.get(route)
+            self.assertEquals(r.status_code, 200)
+            self.assertTrue('delivery' not in r.json)
 
     def test_delete_delivery_error_invalid_key(self):
         self.route = '/delivery/foo'
@@ -640,297 +775,270 @@ class RobotGroupTest(TestCase):
         return app
 
     def setUp(self):
-        self.route = '/instructions'
-        self.client.delete(self.route)
+        self.routeBase = '/robot/0'
+        self.clear_all_robot_fields()
 
-    def data_double(self):
-        return [{'type': 'MOVE', 'value': 100}, {'type': 'TURN', 'value': 90}]
+    # Helper methods
+    def check_response_match(self, expected, res):
+        for k, v in expected.iteritems():
+            self.assertTrue(k in res)
+            self.assertEquals(v, res[k])
 
-    def data_single(self):
-        return {'type': 'MOVE', 'value': 100}
+    def post_correction(self, value):
+        data = {'correction': value}
+        return self.client.post(self.routeBase + '/correction',
+                                data = json.dumps(data))
 
-    # Instruction routes
-    def test_delete_instructions(self):
-        r = self.client.delete(self.route)
+    def post_angle(self, value):
+        data = {'angle': value}
+        return self.client.post(self.routeBase + '/angle',
+                                data = json.dumps(data))
+
+    def post_motor(self, value):
+        data = {'motor': value}
+        return self.client.post(self.routeBase + '/motor',
+                                data = json.dumps(data))
+
+    def post_distance(self, value):
+        data = {'distance': value}
+        return self.client.post(self.routeBase + '/distance',
+                                data = json.dumps(data))
+
+    def get_batch(self):
+        return self.client.get(self.routeBase + '/batch')
+
+    def clear_all_robot_fields(self):
+        self.post_correction(0.0)
+        self.post_angle(0.0)
+        self.post_motor(False)
+        self.post_distance(0.0)
+
+    def check_batch_get_response_match(self, data):
+        r = self.get_batch()
         self.assertEquals(r.status_code, 200)
-
-    def test_get_instructions_queue_empty(self):
-        r = self.client.get(self.route)
-        self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, [])
-
-    def test_get_instructions(self):
-        data = self.data_double()
-        self.client.post(self.route, data = json.dumps(data))
-
-        r = self.client.get(self.route)
-        self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, data)
-
-    def test_post_instructions_single(self):
-        data = self.data_single()
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, [data])
-
-    def test_post_instructions_multiple(self):
-        data = self.data_double()
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 200)
-        self.assertEquals(r.json, data)
-
-    def test_post_instructions_fails_with_missing_type(self):
-        data = [{'value': 100}]
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
-
-    def test_post_instructions_fails_with_missing_value(self):
-        data = [{'type': 'MOVE'}]
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
-
-    def test_post_instructions_fails_with_invalid_type(self):
-        data = [{'type': 'HALT', 'value': 100}]
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
-
-    def test_post_instructions_fails_with_bad_angle(self):
-        data = [{'type': 'TURN', 'value': 190.0}]
-        r = self.client.post(self.route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
+        self.check_response_match(data, r.json)
+        return data
 
     # Batch instructions route
-    def batch_data(self):
-        return [{'type': 'MOVE', 'value': 100},
-                {'type': 'TURN', 'value': 90},
-                {'type': 'TURN', 'value': -90}]
+    def test_get_batch_empty(self):
+        data = {
+            'angle': 0.0,
+            'correction': 0.0,
+            'motor': False,
+            'distance': 0.0
+        }
 
-    def delete_instructions_and_corrections(self):
-        self.client.delete('/instructions')
-        self.client.delete('/correction')
+        self.check_batch_get_response_match(data)
 
-    def test_get_instruction_batch(self):
-        data = self.batch_data()
-        data_correction = {'angle': 10.3}
-        self.delete_instructions_and_corrections()
-        self.client.post('/instructions', data = json.dumps(data))
-        self.client.post('/correction', data = json.dumps(data_correction))
+    def test_get_batch_changes_individually(self):
+        data = {
+            'angle': 0.0,
+            'correction': 0.0,
+            'motor': False,
+            'distance': 0.0
+        }
 
-        route = '/instructions/batch'
-        r = self.client.get(route)
+        # Check 'angle' changes correctly
+        data['angle'] = 23.0
+        r = self.post_angle(data['angle'])
         self.assertEquals(r.status_code, 200)
+        self.check_batch_get_response_match(data)
 
-        resjson = r.json
-        if 'token' in resjson:
-            del resjson['token']
-        self.assertEquals(resjson, {'instructions': data,
-                                    'correction': data_correction})
-
-    def test_get_instruction_batch_no_correction(self):
-        data = self.batch_data()
-        self.delete_instructions_and_corrections()
-        self.client.post('/instructions', data = json.dumps(data))
-
-        route = '/instructions/batch'
-        r = self.client.get(route)
+        # Check 'correction' changes correctly
+        data['correction'] = 74.0
+        r = self.post_correction(data['correction'])
         self.assertEquals(r.status_code, 200)
+        self.check_batch_get_response_match(data)
 
-        resjson = r.json
-        if 'token' in resjson:
-            del resjson['token']
-
-        self.assertEquals(resjson, {'instructions': data})
-
-    def test_get_instruction_batch_limit(self):
-        data = self.batch_data()
-        data_correction = {'angle': 10.3}
-        self.delete_instructions_and_corrections()
-        self.client.post('/instructions', data = json.dumps(data))
-        self.client.post('/correction', data = json.dumps(data_correction))
-
-        route = '/instructions/batch?limit=2'
-        r = self.client.get(route)
+        # Check 'motor' changes correctly
+        data['motor'] = True
+        r = self.post_motor(data['motor'])
         self.assertEquals(r.status_code, 200)
+        self.check_batch_get_response_match(data)
 
-        resjson = r.json
-        if 'token' in resjson:
-            del resjson['token']
-        self.assertEquals(resjson, {'instructions': data[0:2],
-                                    'correction': data_correction})
-
-        route = '/instructions/batch?limit=3'
-        r = self.client.get(route)
+        # Check 'distance' changes correctly
+        data['distance'] = 99.0
+        r = self.post_distance(data['distance'])
         self.assertEquals(r.status_code, 200)
+        self.check_batch_get_response_match(data)
 
-        resjson = r.json
-        if 'token' in resjson:
-            del resjson['token']
-        self.assertEquals(resjson, {'instructions': data,
-                                    'correction': data_correction})
+    def test_post_batch_no_changes_invalid_updates(self):
+        data = {
+            'angle': 0.0,
+            'correction': 0.0,
+            'motor': False,
+            'distance': 0.0
+        }
 
-        route = '/instructions/batch?limit=10'
-        r = self.client.get(route)
+        # Check 'angle' changes correctly
+        r = self.post_angle('asd')
+        self.assertEquals(r.status_code, 400)
+        self.check_batch_get_response_match(data)
+
+        # Check 'correction' changes correctly
+        r = self.post_correction('asdasd')
+        self.assertEquals(r.status_code, 400)
+        self.check_batch_get_response_match(data)
+
+        # Check 'motor' changes correctly
+        r = self.post_motor('asdasd')
+        self.assertEquals(r.status_code, 400)
+        self.check_batch_get_response_match(data)
+
+        # Check 'distance' changes correctly
+        r = self.post_correction('asdasd')
+        self.assertEquals(r.status_code, 400)
+        self.check_batch_get_response_match(data)
+
+    def test_post_batch(self):
+        data = {
+            'angle': 0.0,
+            'correction': 0.0,
+            'motor': False,
+            'distance': 0.0
+        }
+        self.check_batch_get_response_match(data)
+
+        # Check 'angle' changes correctly
+        data['angle'] = 23.0
+        data['correction'] = 66.0
+        data['motor'] = True
+        data['distance'] = 88.0
+        r = self.client.post(self.routeBase + '/batch',
+                             data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
+        self.check_batch_get_response_match(data)
 
-        resjson = r.json
-        if 'token' in resjson:
-            del resjson['token']
-        self.assertEquals(resjson, {'instructions': data,
-                                    'correction': data_correction})
-
-    def test_get_instruction_batch_limit_invalid(self):
-        data = self.batch_data()
-        data_correction = {'angle': 10.3}
-        self.delete_instructions_and_corrections()
-        self.client.post('/instructions', data = json.dumps(data))
-        self.client.post('/correction', data = json.dumps(data_correction))
-
-        route = '/instructions/batch?limit=0'
-        r = self.client.get(route)
+    def test_post_batch_error_invalid_angle(self):
+        data = {'angle': 'asd'}
+        r = self.client.post(self.routeBase + '/batch',
+                             data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
-        route = '/instructions/batch?limit=-10'
-        r = self.client.get(route)
+    def test_post_batch_error_invalid_correction(self):
+        data = {'correction': 'asd'}
+        r = self.client.post(self.routeBase + '/batch',
+                             data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
-    # Instruction routes
-    def delete_and_post_instructions(self, data):
-        self.client.delete('/instructions')
-        self.client.post('/instructions', data = json.dumps(data))
+    def test_post_batch_error_invalid_motor(self):
+        data = {'motor': 'asd'}
+        r = self.client.post(self.routeBase + '/batch',
+                             data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
 
-    def test_get_instruction(self):
-        data = self.batch_data()
-        self.delete_and_post_instructions(data)
-
-        for i in range(0, 3):
-            route = '/instruction/' + str(i)
-            r = self.client.get(route)
-            self.assertEquals(r.status_code, 200)
-            self.assertEquals(r.json, data[i])
-
-    def test_get_instruction_invalid_index(self):
-        data = self.batch_data()
-        self.delete_and_post_instructions(data)
-
-        route = '/instruction/-1'
-        r = self.client.get(route)
-        self.assertEquals(r.status_code, 404)
-
-        route = '/instruction/4'
-        r = self.client.get(route)
-        self.assertEquals(r.status_code, 404)
-
-    def test_delete_instruction(self):
-        data = self.batch_data()
-        self.delete_and_post_instructions(data)
-
-        route = '/instruction/0'
-        r = self.client.delete(route)
-        self.assertEquals(r.status_code, 200)
-        s = self.client.get('/instructions')
-        self.assertEquals(s.status_code, 200)
-        self.assertEquals(s.json, [data[1], data[2]])
-
-    def test_delete_instruction_invalid_index(self):
-        data = self.batch_data()
-        self.delete_and_post_instructions(data)
-
-        route = '/instruction/-1'
-        r = self.client.delete(route)
-        self.assertEquals(r.status_code, 404)
-
-        route = '/instruction/4'
-        r = self.client.delete(route)
-        self.assertEquals(r.status_code, 404)
-
-        # Verify collection has not mutated
-        s = self.client.get('/instructions')
-        self.assertEquals(s.status_code, 200)
-        self.assertEquals(s.json, data)
+    def test_post_batch_error_invalid_distance(self):
+        data = {'distance': 'asd'}
+        r = self.client.post(self.routeBase + '/batch',
+                             data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
 
     # Correction routes
-    def test_get_correction_none(self):
-        route = '/correction'
-        self.client.delete(route)
-
-        r = self.client.get(route)
-        self.assertEquals(r.status_code, 404)
-
-    def test_get_correction_angle(self):
-        route = '/correction'
-        data = {'angle': 50.0}
-        self.client.delete(route)
-        self.client.post(route, data = json.dumps(data))
-
+    def test_get_correction(self):
+        route = self.routeBase + '/correction'
         r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
+        self.assertEquals(float(r.json['correction']), 0.0)
 
-    def test_post_correction_angle(self):
-        route = '/correction'
-        data = {'angle': 50.0}
-        self.client.delete(route)
+    def test_post_correction(self):
+        route = self.routeBase + '/correction'
+        data = {'correction': 50.0}
+
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, data)
 
-    def test_post_correction_error_resubmit(self):
-        route = '/correction'
+    def test_post_correction_error_not_float(self):
+        route = self.routeBase + '/correction'
+
+        data = {'correction': 50}
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    # Angle routes
+    def test_get_angle(self):
+        route = self.routeBase + '/angle'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(float(r.json['angle']), 0.0)
+
+    def test_post_angle(self):
+        route = self.routeBase + '/angle'
         data = {'angle': 50.0}
 
-        # Ensure a correction has already been issued
-        self.client.post(route, data = json.dumps(data))
-
         r = self.client.post(route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, data)
 
-    def test_post_correction_error_no_angle(self):
-        route = '/correction'
-        self.client.delete(route)
-
-        data = {'foo': 50.0}
-        r = self.client.post(route, data = json.dumps(data))
-        self.assertEquals(r.status_code, 400)
-
-    def test_post_correction_error_angle_not_float(self):
-        route = '/correction'
-        self.client.delete(route)
+    def test_post_angle_error_angle_not_float(self):
+        route = self.routeBase + '/angle'
 
         data = {'angle': 50}
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 400)
 
-    def test_delete_correction_angle(self):
-        route = '/correction'
-        data = {'angle': 50.0}
-        self.client.post(route, data = json.dumps(data))
-
-        r = self.client.delete(route)
+    # Distance routes
+    def test_get_distance(self):
+        route = self.routeBase + '/distance'
+        r = self.client.get(route)
         self.assertEquals(r.status_code, 200)
+        self.assertEquals(float(r.json['distance']), 0.0)
 
-    def test_delete_correction_error(self):
-        route = '/correction'
-        self.client.delete(route)  # Ensure correction is clear
-        r = self.client.delete(route)
-        self.assertEquals(r.status_code, 404)
+    def test_post_distance(self):
+        route = self.routeBase + '/distance'
+        data = {'distance': 50.0}
+
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, data)
+
+    def test_post_distance_error_not_float(self):
+        route = self.routeBase + '/distance'
+
+        data = {'distance': 50}
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
+
+    # Motor routes
+    def test_get_motor(self):
+        route = self.routeBase + '/motor'
+        r = self.client.get(route)
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json['motor'], False)
+
+    def test_post_motor(self):
+        route = self.routeBase + '/motor'
+        data = {'motor': True}
+
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 200)
+        self.assertEquals(r.json, data)
+
+    def test_post_motor_error_not_bool(self):
+        route = self.routeBase + '/motor'
+
+        data = {'motor': 50}
+        r = self.client.post(route, data = json.dumps(data))
+        self.assertEquals(r.status_code, 400)
 
     # Lock routes
     def test_post_lock_set_true(self):
-        data = {'locked': True}
-        route = '/lock'
+        data = {'lock': True}
+        route = self.routeBase + '/lock'
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, data)
 
     def test_post_lock_set_false(self):
-        data = {'locked': True}
-        route = '/lock'
+        data = {'lock': True}
+        route = self.routeBase + '/lock'
         r = self.client.post(route, data = json.dumps(data))
         self.assertEquals(r.status_code, 200)
         self.assertEquals(r.json, data)
 
     def test_get_lock_false(self):
-        route = '/lock'
-        data = {'locked': False}
+        route = self.routeBase + '/lock'
+        data = {'lock': False}
         self.client.post(route, data = json.dumps(data))
 
         r = self.client.get(route)
@@ -938,8 +1046,8 @@ class RobotGroupTest(TestCase):
         self.assertEquals(r.json, data)
 
     def test_get_lock_true(self):
-        route = '/lock'
-        data = {'locked': True}
+        route = self.routeBase + '/lock'
+        data = {'lock': True}
         self.client.post(route, data = json.dumps(data))
 
         r = self.client.get(route)
@@ -965,8 +1073,15 @@ class VerifyTest(TestCase):
         self.clear_database()
         self.route = '/deliveries'
         self.client.delete(self.route)
+        r = self.client.get(self.route)
+        self.assertEquals(r.json, [])
+
+        for i in range(0, 5):
+            route = '/robot/' + str(i) + '/batch'
+            r = self.client.get(route)
+            self.assertTrue('delivery' not in r.json)
+
         self.create_dummy_targets()
-        self.client.delete(self.route)
         self.register_foo_and_foo2()
 
         loginData = {'username': 'foo', 'password': 'bar'}
@@ -1008,10 +1123,20 @@ class VerifyTest(TestCase):
                              headers = {"Authorization": "Bearer " + bearer})
         self.assertEquals(r.status_code, 200)
 
+    def simulate_delivery_state_changes(self, finalState):
+        states = ["MOVING_TO_SOURCE", "AWAITING_AUTHENTICATION_SENDER",
+                  "AWAITING_PACKAGE_LOAD", "PACKAGE_LOAD_COMPLETE",
+                  "MOVING_TO_DESTINATION", "AWAITING_AUTHENTICATION_RECEIVER",
+                  "AWAITING_PACKAGE_RETRIEVAL", "PACKAGE_RETRIEVAL_COMPLETE",
+                  "COMPLETE"]
+        for s in states[:states.index(finalState) + 1]:
+            self.change_delivery_state(s)
+
     def change_delivery_state(self, state):
         self.route = '/delivery/0'
         r = self.client.patch(self.route, data = json.dumps({
-            "state": state
+            "state": state,
+            "robot": 0
         }))
         self.assertEquals(r.status_code, 200)
 
@@ -1025,19 +1150,22 @@ class VerifyTest(TestCase):
         return r.json['bearer']
 
     def get_challenge_token(self):
-        self.route = '/instructions/batch'
+        self.route = '/robot/0/batch'
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
 
-        if 'token' not in r.json:
-            return None
+        self.assertTrue('delivery' in r.json)
+        self.assertTrue('senderAuthToken' in r.json['delivery'])
+        self.assertTrue('receiverAuthToken' in r.json['delivery'])
 
-        token = r.json['token']
-        self.assertEquals(len(token), 10)
-        return token
+        senderToken = r.json['delivery']['senderAuthToken']
+        receiverToken = r.json['delivery']['receiverAuthToken']
+        self.assertEquals(len(senderToken), 10)
+        self.assertEquals(len(senderToken), 10)
+        return (senderToken, receiverToken)
 
     def execute_challenge(self, token, bearer):
-        self.route = '/verify'
+        self.route = '/robot/0/verify'
         headers = {'Authorization': 'Bearer ' + str(bearer)}
         data = {'token': token}
         r = self.client.post(self.route, data = json.dumps(data),
@@ -1046,9 +1174,9 @@ class VerifyTest(TestCase):
 
     def test_post_verify_auth_sender(self):
         self.setup_delivery()
-        self.change_delivery_state("AWAITING_AUTHENTICATION_SENDER")
+        self.simulate_delivery_state_changes("AWAITING_AUTHENTICATION_SENDER")
         bearer = self.login("foo", "bar")
-        token = self.get_challenge_token()
+        (token, _) = self.get_challenge_token()
         r = self.execute_challenge(token, bearer)
         self.assertEquals(r.status_code, 200)
 
@@ -1058,9 +1186,10 @@ class VerifyTest(TestCase):
 
     def test_post_verify_auth_receiver(self):
         self.setup_delivery()
-        self.change_delivery_state("AWAITING_AUTHENTICATION_RECEIVER")
+        self.simulate_delivery_state_changes(
+            "AWAITING_AUTHENTICATION_RECEIVER")
         bearer = self.login("foo2", "bar2")
-        token = self.get_challenge_token()
+        (_, token) = self.get_challenge_token()
         r = self.execute_challenge(token, bearer)
         self.assertEquals(r.status_code, 200)
 
@@ -1070,13 +1199,15 @@ class VerifyTest(TestCase):
 
     def test_post_verify_error_wrong_state(self):
         self.setup_delivery()
-        self.change_delivery_state("IN_QUEUE")
-        token = self.get_challenge_token()
-        self.assertEquals(token, None)
+        self.route = '/robot/0/batch'
+        r = self.client.get(self.route)
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' not in r.json)
 
     def test_post_verify_error_wrong_token(self):
         self.setup_delivery()
-        self.change_delivery_state("AWAITING_AUTHENTICATION_RECEIVER")
+        self.simulate_delivery_state_changes(
+            "AWAITING_AUTHENTICATION_SENDER")
         bearer = self.login("foo2", "bar2")
         token = "blahblah"
         r = self.execute_challenge(token, bearer)
@@ -1084,9 +1215,10 @@ class VerifyTest(TestCase):
 
     def test_post_verify_error_wrong_bearer(self):
         self.setup_delivery()
-        self.change_delivery_state("AWAITING_AUTHENTICATION_RECEIVER")
+        self.simulate_delivery_state_changes(
+            "AWAITING_AUTHENTICATION_SENDER")
         bearer = "foofoo"
-        token = self.get_challenge_token()
+        (_, token) = self.get_challenge_token()
         r = self.execute_challenge(token, bearer)
         self.assertEquals(r.status_code, 401)
 

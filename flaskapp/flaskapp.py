@@ -75,6 +75,14 @@ def startup():
         print('Skipping cache clear as we are running in debug mode.')
 
 
+@app.teardown_request
+def force_cache_sync(exc):
+    try:
+        get_cache().sync()
+    except Exception:
+        pass
+
+
 @app.teardown_appcontext
 def close_cache(error):
     if hasattr(g, 'cache'):
@@ -154,9 +162,9 @@ def delete_delivery_by_id(id):
 
     if get_delivery_by_id(id) is not None:
         # Clear robot assignment
-        if delivery.robot is not None:
-            id = delivery.robot.id
-            get_robot(id).delivery = None
+        robot = get_robot(delivery.robot)
+        if robot is not None:
+            robot.delivery = None
 
         # Delete delivery
         del get_cache()['deliveries'][id]
@@ -312,8 +320,8 @@ def patch_delivery_with_json(id, data):
         if get_robot(data['robot']).delivery is not None:
             return bad_request("This robot is busy on another delivery")
 
-        delivery.robot = get_robot(data['robot'])
-        delivery.robot.delivery = delivery
+        delivery.robot = data['robot']
+        get_robot(delivery.robot).delivery = delivery.id
 
     delivery.state = state
 
@@ -333,14 +341,14 @@ def patch_delivery_with_json(id, data):
         DeliveryState.COMPLETE: True
     }
 
-    # Temporary fix for #54
+    robot = get_robot(delivery.robot)
     if delivery.state in lock_state_mapping:
-        delivery.robot.lock = lock_state_mapping[state]
+        robot.lock = lock_state_mapping[state]
     else:
-        delivery.robot.lock = False
+        robot.lock = False
 
     if state == DeliveryState.COMPLETE:
-        delivery.robot.delivery = None
+        robot.delivery = None
 
     return delivery_get(id)
 
@@ -482,11 +490,12 @@ def robot_batch_get(id):
     response['distance'] = r.distance
 
     if r.delivery is not None:
-        delivery = {}
-        delivery['state'] = r.delivery.state
-        delivery['senderAuthToken'] = r.delivery.senderAuthToken
-        delivery['receiverAuthToken'] = r.delivery.receiverAuthToken
-        response['delivery'] = delivery
+        delivery = get_delivery_by_id(r.delivery)
+        obj = {}
+        obj['state'] = delivery.state
+        obj['senderAuthToken'] = delivery.senderAuthToken
+        obj['receiverAuthToken'] = delivery.receiverAuthToken
+        response['delivery'] = obj
 
     return jsonify(response)
 
@@ -653,16 +662,17 @@ def robot_verify_post(id):
         return unauthorized(e.message)
 
     trueToken = None
-    robotState = get_robot(id).delivery.state
+    robot = get_robot(id)
+    delivery = get_delivery_by_id(robot.delivery)
+    robotState = delivery.state
     if robotState == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
-        trueToken = get_robot(id).delivery.senderAuthToken
+        trueToken = delivery.senderAuthToken
     elif robotState == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
-        trueToken = get_robot(id).delivery.receiverAuthToken
+        trueToken = delivery.receiverAuthToken
 
     if data['token'] != trueToken:
         return unauthorized("Challenge token doesn't match QR")
 
-    delivery = get_robot(id).delivery
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         if delivery.sender == username:
             patch_delivery_with_json(id, {

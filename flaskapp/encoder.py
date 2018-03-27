@@ -37,7 +37,7 @@ class CustomJSONEncoder(JSONEncoder):
             }
 
             if obj.robot is not None:
-                res['robot'] = obj.robot.id
+                res['robot'] = obj.robot
 
             if obj.description is not None:
                 res['description'] = obj.description

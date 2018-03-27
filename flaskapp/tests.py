@@ -448,6 +448,40 @@ class DeliveryGroupTest(TestCase):
         self.assertTrue('state' in r.json['delivery'])
         self.assertEquals(r.json['delivery']['state'], "MOVING_TO_SOURCE")
 
+    def test_patch_delivery_syncs_with_robot(self):
+        self.add_data_single()
+        r = self.post_data_single()
+        self.assertEquals(r.status_code, 200)
+        self.simulate_delivery_state_changes("MOVING_TO_SOURCE",
+                                             0, 0)
+
+        r = self.client.get('/delivery/0')
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('robot' in r.json, 0)
+        self.assertEquals(r.json['robot'], 0)
+
+        r = self.client.get('/robot/0/batch')
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' in r.json)
+        self.assertTrue('state' in r.json['delivery'])
+        self.assertEquals(r.json['delivery']['state'], "MOVING_TO_SOURCE")
+
+        r = self.client.patch('/delivery/0', data = json.dumps(
+            {"state": "AWAITING_AUTHENTICATION_SENDER"}))
+        self.assertEquals(r.status_code, 200)
+
+        r = self.client.get('/delivery/0')
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('robot' in r.json, 0)
+        self.assertEquals(r.json['robot'], 0)
+
+        r = self.client.get('/robot/0/batch')
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' in r.json)
+        self.assertTrue('state' in r.json['delivery'])
+        self.assertEquals(r.json['delivery']['state'],
+                          "AWAITING_AUTHENTICATION_SENDER")
+
     def test_patch_delivery_to_complete_clears_robot_assignment(self):
         self.add_data_single()
         r = self.post_data_single()

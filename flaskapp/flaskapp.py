@@ -139,26 +139,69 @@ def register():
 #                                            #
 #              DELIVERY ROUTES               #
 #                                            #
+def get_delivery_by_id(id):
+    if 'deliveries' not in get_cache():
+        get_cache()['deliveries'] = dict()
+
+    if id not in get_cache()['deliveries']:
+        return None
+
+    return get_cache()['deliveries'][id]
+
+
+def delete_delivery_by_id(id):
+    delivery = get_delivery_by_id(id)
+
+    if get_delivery_by_id(id) is not None:
+        # Clear robot assignment
+        if delivery.robot is not None:
+            id = delivery.robot.id
+            get_robot(id).delivery = None
+
+        # Delete delivery
+        del get_cache()['deliveries'][id]
+    else:
+        raise Exception("Delivery with that ID does not exist")
+
+
+def add_delivery_with_id(id, delivery):
+    if get_delivery_by_id(id) is None:
+        get_cache()['deliveries'][id] = delivery
+    else:
+        raise Exception("Delivery with that ID already exists!")
+
+
+def get_sorted_delivery_ids():
+    if 'deliveries' not in get_cache():
+        get_cache()['deliveries'] = dict()
+
+    # Build list of (priority, id) tuples
+    params = []
+    for key, delivery in get_cache()['deliveries'].iteritems():
+        params.append((delivery.priority, delivery.id))
+
+    # Sort list of tuples
+    params.sort()
+
+    # Filter out ids
+    return [x[1] for x in params]
+
+
 @app.route('/deliveries', methods = ['GET'])
 def deliveries_get():
-    if 'deliveryQueue' not in get_cache():
-        get_cache()['deliveryQueue'] = []
-
-    return jsonify([x[2] for x in get_cache()['deliveryQueue']])
+    sorted_ids = get_sorted_delivery_ids()
+    return jsonify([get_delivery_by_id(x) for x in sorted_ids])
 
 
 @app.route('/deliveries', methods = ['POST'])
 def deliveries_post():
-    if 'deliveryQueue' not in get_cache():
-        get_cache()['deliveryQueue'] = []
-
     if 'deliveryQueueCounter' not in get_cache():
         get_cache()['deliveryQueueCounter'] = 0
 
     data = request.get_json(force=True)
     counter = get_cache()['deliveryQueueCounter']
 
-    # Error checking
+    # Check for errors in input
     if 'name' not in data:
         return bad_request("Must provde a name")
     if not isinstance(data['name'], basestring):        # NOQA
@@ -175,14 +218,10 @@ def deliveries_post():
             not isinstance(data['receiver'], basestring)):  # NOQA
         return bad_request("Must provide both a sender and a receiver")
 
+    # Check for target existence
     targetsTable = get_db()['targets']
     fromTarget = targetsTable.find_one(id=data['from'])
     toTarget = targetsTable.find_one(id=data['to'])
-
-    try:
-        username = get_username(request.headers)
-    except InvalidBearerException as e:
-        return unauthorized(e.message)
 
     if fromTarget is None:
         return bad_request("From target doesn't exist")
@@ -190,6 +229,13 @@ def deliveries_post():
     if toTarget is None:
         return bad_request("To target doesn't exist")
 
+    # Check for authorization errors
+    try:
+        username = get_username(request.headers)
+    except InvalidBearerException as e:
+        return unauthorized(e.message)
+
+    # Check for sender/receiver existence
     usersTable = get_db()['users']
     senderUser = usersTable.find_one(username=data['sender'])
     receiverUser = usersTable.find_one(username=data['receiver'])
@@ -203,6 +249,8 @@ def deliveries_post():
     if receiverUser is None:
         return bad_request("Receiver user doesn't exist")
 
+    # Construct delivery object
+    d = None
     if 'description' in data:
         d = Delivery(counter, fromTarget, toTarget, data['sender'],
                      data['receiver'], data['priority'], data['name'],
@@ -211,23 +259,19 @@ def deliveries_post():
         d = Delivery(counter, fromTarget, toTarget, data['sender'],
                      data['receiver'], data['priority'], data['name'])
 
-    h = get_cache()['deliveryQueue']
-    h.append((d.priority, counter, d))
-    get_cache()['deliveryQueue'] = sorted(h, key = lambda x: (x[0], x[1]))
+    # Add object
+    add_delivery_with_id(counter, d)
 
+    # Return added object
     get_cache()['deliveryQueueCounter'] += 1
     return delivery_get(counter)
 
 
 @app.route('/deliveries', methods = ['DELETE'])
 def deliveries_delete():
-    for delivery in get_cache()['deliveryQueue']:
-        if delivery[2].robot is not None:
-            id = delivery[2].robot.id
-            get_robot(id).delivery = None
-
-    if 'deliveryQueue' in get_cache():
-        get_cache()['deliveryQueue'] = []
+    sorted_ids = get_sorted_delivery_ids()
+    for id in sorted_ids:
+        delete_delivery_by_id(id)
 
     get_cache()['deliveryQueueCounter'] = 0
     return ''
@@ -236,14 +280,11 @@ def deliveries_delete():
 # Delivery route
 @app.route('/delivery/<int:id>', methods = ['GET'])
 def delivery_get(id):
-    if 'deliveryQueue' not in get_cache():
-        get_cache()['deliveryQueue'] = []
-
-    item = [x[2] for x in get_cache()['deliveryQueue'] if x[1] == id]
-    if len(item) <= 0:
+    delivery = get_delivery_by_id(id)
+    if delivery is None:
         return file_not_found("There's no delivery with that ID!")
 
-    return jsonify(item[0])
+    return jsonify(delivery)
 
 
 @app.route('/delivery/<int:id>', methods = ['PATCH'])
@@ -253,16 +294,8 @@ def delivery_patch(id):
 
 
 def patch_delivery_with_json(id, data):
-    if 'deliveryQueue' not in get_cache():
-        get_cache()['deliveryQueue'] = []
-
-    index = -1
-    for idx, d in enumerate(get_cache()['deliveryQueue']):
-        if d[1] == id:
-            index = idx
-            break
-
-    if index < 0:
+    delivery = get_delivery_by_id(id)
+    if delivery is None:
         return file_not_found("There's no delivery with that ID!")
 
     if 'state' not in data:
@@ -270,7 +303,6 @@ def patch_delivery_with_json(id, data):
     if data['state'] not in [e.name for e in DeliveryState]:
         return bad_request("Invalid state")
 
-    delivery = get_cache()['deliveryQueue'][index][2]
     state = DeliveryState[data['state']]
     if state == DeliveryState.MOVING_TO_SOURCE:
         if 'robot' not in data:
@@ -315,18 +347,11 @@ def patch_delivery_with_json(id, data):
 
 @app.route('/delivery/<int:id>', methods = ['DELETE'])
 def delivery_delete(id):
-    if 'deliveryQueue' not in get_cache():
-        get_cache()['deliveryQueue'] = []
-
-    item = [x[2] for x in get_cache()['deliveryQueue'] if x[1] == id]
-    if len(item) <= 0:
+    try:
+        delete_delivery_by_id(id)
+    except:
         return file_not_found("There's no delivery with that ID!")
 
-    if item[0].robot is not None:
-        item[0].robot.delivery = None
-
-    items = [x for x in get_cache()['deliveryQueue'] if x[1] != id]
-    get_cache()['deliveryQueue'] = items
     return ''
 
 

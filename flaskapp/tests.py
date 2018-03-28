@@ -5,6 +5,38 @@ import flaskapp
 import dataset
 
 
+class MiscTest(TestCase):
+    def create_app(self):
+        self.app = flaskapp.app
+        self.app.config['TESTING'] = True
+        self.app.config['DATASET_DATABASE_URI'] = 'sqlite:///testdb.db'
+        return self.app
+
+    def test_exception_handler(self):
+        r = flaskapp.exception_handler("error")
+        self.assertEqual(r[1], 500)
+        self.assertEqual(r[0]['code'], 500)
+        self.assertEqual(r[0]['error'], "Internal server error")
+        self.assertEqual(r[0]['friendly'], "error")
+
+
+class MiscTestProduction(TestCase):
+    def create_app(self):
+        self.app = flaskapp.app
+        self.app.config['TESTING'] = False
+        self.app.config['DATASET_DATABASE_URI'] = 'sqlite:///testdb.db'
+        return self.app
+
+    def test_exception_handler(self):
+        r = flaskapp.exception_handler("error")
+        r = flaskapp.exception_handler("error")
+        self.assertEqual(r[1], 500)
+        self.assertEqual(r[0]['code'], 500)
+        self.assertEqual(r[0]['error'], "Internal server error")
+        self.assertEqual(r[0]['friendly'], "Internal server error. " +
+                         "Error messages are suppressed in production mode.")
+
+
 class LoginGroupTest(TestCase):
     def create_app(self):
         self.app = flaskapp.app

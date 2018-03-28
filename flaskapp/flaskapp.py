@@ -730,12 +730,13 @@ def file_not_found(friendly):
 
 @app.errorhandler(Exception)
 def exception_handler(error):
-    return "Oh no! "  + repr(error), 400
+    if 'TESTING' in app.config and app.config['TESTING']:
+        return jsonify({"code": 500, "error": "Internal server error",
+                        "friendly": str(error)}), 500
 
-
-@app.errorhandler(401)
-def custom_401(error):
-    return 'Access denied', 401
+    return jsonify({"code": 500, "error": "Internal server error",
+                    "friendly": "Internal server error. " +
+                    "Error messages are suppressed in production mode."}), 500
 
 
 def main():

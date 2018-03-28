@@ -673,12 +673,18 @@ def robot_verify_post(id):
 
     trueToken = None
     robot = get_robot(id)
+
     delivery = get_delivery_by_id(robot.delivery)
+    if delivery is None:
+        return bad_request("This robot is not presently delivering")
+
     robotState = delivery.state
     if robotState == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         trueToken = delivery.senderAuthToken
     elif robotState == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         trueToken = delivery.receiverAuthToken
+    else:
+        return bad_request("This robot is not awaiting any verification")
 
     if data['token'] != trueToken:
         return unauthorized("Challenge token doesn't match QR")

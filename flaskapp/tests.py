@@ -1267,12 +1267,31 @@ class VerifyTest(TestCase):
         r = self.client.get(self.route)
         self.assertEquals(r.json['state'], "AWAITING_PACKAGE_RETRIEVAL")
 
-    def test_post_verify_error_wrong_state(self):
+    def test_post_verify_error_robot_not_delivering(self):
         self.setup_delivery()
+
         self.route = '/robot/0/batch'
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
         self.assertTrue('delivery' not in r.json)
+
+        bearer = self.login("foo", "bar")
+        r = self.execute_challenge('dummy', bearer)
+        self.assertEquals(r.status_code, 400)
+
+    def test_post_verify_error_wrong_state(self):
+        self.setup_delivery()
+        self.simulate_delivery_state_changes("MOVING_TO_SOURCE")
+
+        self.route = '/robot/0/batch'
+        r = self.client.get(self.route)
+        self.assertEquals(r.status_code, 200)
+        self.assertTrue('delivery' in r.json)
+
+        bearer = self.login("foo", "bar")
+        (_, token) = self.get_challenge_token()
+        r = self.execute_challenge(token, bearer)
+        self.assertEquals(r.status_code, 400)
 
     def test_post_verify_error_wrong_token(self):
         self.setup_delivery()

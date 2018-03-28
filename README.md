@@ -32,16 +32,28 @@ python flaskapp/flaskapp.py
 
 ## Running the tests
 
-To run the tests, execute the following command on your terminal:
+To run the tests, from inside the `flaskapp/` folder, you can execute:
 
 ```
-coverage run --source flaskapp flaskapp/tests.py
+python -m unittest discover
+python -m tests.test_login_group
+python -m tests.test_login_group.test_post_register
+```
+
+The first command will discover all the test files and run them, the second
+will run only the login group test file, and the final one will run a single
+method in the login group.
+
+To run the tests using coverage.py and generate a report, run:
+
+```
+coverage run -m unittest discover; coverage report
 ```
 
 If you are using a virtual env, you can use this command:
 
 ```
-coverage run --source flaskapp --omit '*/venv/*' flaskapp/tests.py
+coverage run -m unittest discover; coverage report
 ```
 
 ## Deployment

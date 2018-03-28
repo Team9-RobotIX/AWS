@@ -975,6 +975,10 @@ class RobotGroupTest(TestCase):
         self.assertEquals(r.status_code, 200)
         self.check_batch_get_response_match(data)
 
+    def test_post_batch_error_null_input(self):
+        r = self.client.post(self.routeBase + '/batch', data = '')
+        self.assertEquals(r.status_code, 400)
+
     def test_post_batch_error_invalid_angle(self):
         data = {'angle': 'asd'}
         r = self.client.post(self.routeBase + '/batch',

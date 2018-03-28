@@ -15,9 +15,9 @@ class MiscTest(TestCase):
     def test_exception_handler(self):
         r = flaskapp.exception_handler("error")
         self.assertEqual(r[1], 500)
-        self.assertEqual(r[0]['code'], 500)
-        self.assertEqual(r[0]['error'], "Internal server error")
-        self.assertEqual(r[0]['friendly'], "error")
+        self.assertEqual(r[0].json['code'], 500)
+        self.assertEqual(r[0].json['error'], "Internal server error")
+        self.assertEqual(r[0].json['friendly'], "error")
 
 
 class MiscTestProduction(TestCase):
@@ -31,9 +31,9 @@ class MiscTestProduction(TestCase):
         r = flaskapp.exception_handler("error")
         r = flaskapp.exception_handler("error")
         self.assertEqual(r[1], 500)
-        self.assertEqual(r[0]['code'], 500)
-        self.assertEqual(r[0]['error'], "Internal server error")
-        self.assertEqual(r[0]['friendly'], "Internal server error. " +
+        self.assertEqual(r[0].json['code'], 500)
+        self.assertEqual(r[0].json['error'], "Internal server error")
+        self.assertEqual(r[0].json['friendly'], "Internal server error. " +
                          "Error messages are suppressed in production mode.")
 
 

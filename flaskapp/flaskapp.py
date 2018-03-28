@@ -533,7 +533,7 @@ def robot_correction_post(id):
 
     try:
         robot_update_correction(id, data)
-    except BadRequestException as e:
+    except Exception as e:
         return bad_request(e.message)
 
     return robot_correction_get(id)
@@ -726,6 +726,12 @@ def file_not_found(friendly):
     }
 
     return jsonify(data), error_code
+
+
+@app.errorhandler(BadRequestException)
+def bad_request_exception_handler(friendly):
+    return jsonify({"code": 400, "error": "Bad request",
+                    "friendly": str(friendly)}), 400
 
 
 @app.errorhandler(Exception)

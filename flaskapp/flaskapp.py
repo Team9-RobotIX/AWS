@@ -292,6 +292,11 @@ def deliveries_delete():
         delete_delivery_by_id(id)
 
     get_cache()['deliveryQueueCounter'] = 0
+
+    # TODO: This shouldn't be necessary
+    if 'robots' in get_cache():
+        del get_cache()['robots']
+
     return ''
 
 
@@ -311,7 +316,7 @@ def delivery_patch(id):
     return patch_delivery_with_json(id, data)
 
 
-def patch_delivery_with_json(id, data):
+def patch_delivery_with_json(id, data, force = False):
     delivery = get_delivery_by_id(id)
     if delivery is None:
         return file_not_found("There's no delivery with that ID!")
@@ -320,6 +325,23 @@ def patch_delivery_with_json(id, data):
         return bad_request("Missing state")
     if data['state'] not in [e.name for e in DeliveryState]:
         return bad_request("Invalid state")
+
+    # Check if PATCH is valid
+    valid_patches = {
+        "IN_QUEUE": "MOVING_TO_SOURCE",
+        "MOVING_TO_SOURCE": "AWAITING_AUTHENTICATION_SENDER",
+        "AWAITING_PACKAGE_LOAD": "PACKAGE_LOAD_COMPLETE",
+        "PACKAGE_LOAD_COMPLETE": "MOVING_TO_DESTINATION",
+        "MOVING_TO_DESTINATION": "AWAITING_AUTHENTICATION_RECEIVER",
+        "AWAITING_PACKAGE_RETRIEVAL": "PACKAGE_RETRIEVAL_COMPLETE",
+        "PACKAGE_RETRIEVAL_COMPLETE": "COMPLETE"
+    }
+
+    if not force and ('TESTING' not in app.config or
+                      not app.config['TESTING']):
+        if (delivery.state.name not in valid_patches or
+                valid_patches[delivery.state.name] != data['state']):
+            return bad_request(str(delivery.state.name))
 
     state = DeliveryState[data['state']]
     if state == DeliveryState.MOVING_TO_SOURCE:
@@ -684,7 +706,7 @@ def robot_verify_post(id):
     elif robotState == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         trueToken = delivery.receiverAuthToken
     else:
-        return bad_request("This robot is not awaiting any verification")
+        return bad_request("This robot is not awaiting any verification.")
 
     if data['token'] != trueToken:
         return unauthorized("Challenge token doesn't match QR")
@@ -692,13 +714,13 @@ def robot_verify_post(id):
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         if delivery.sender == username:
             patch_delivery_with_json(id, {
-                "state": "AWAITING_PACKAGE_LOAD"})
+                "state": "AWAITING_PACKAGE_LOAD"}, True)
             return ''
 
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         if delivery.receiver == username:
             patch_delivery_with_json(id, {
-                "state": "AWAITING_PACKAGE_RETRIEVAL"})
+                "state": "AWAITING_PACKAGE_RETRIEVAL"}, True)
             return ''
 
     return unauthorized("You are not allowed to open the box!")

@@ -29,7 +29,8 @@ class MiscTest(TestCase):
             "IN_QUEUE": [("MOVING_TO_SOURCE", 0)],
             "MOVING_TO_SOURCE": [("AWAITING_AUTHENTICATION_SENDER", 0)],
             "AWAITING_AUTHENTICATION_SENDER": [("AWAITING_PACKAGE_LOAD", 2)],
-            "AWAITING_PACKAGE_LOAD": [("MOVING_TO_DESTINATION", 1)],
+            "AWAITING_PACKAGE_LOAD": [("PACKAGE_LOAD_COMPLETE", 1)],
+            "PACKAGE_LOAD_COMPLETE": [("MOVING_TO_DESTINATION", 0)],
             "MOVING_TO_DESTINATION": [("AWAITING_AUTHENTICATION_RECEIVER", 0)],
             "AWAITING_AUTHENTICATION_RECEIVER": [("AWAITING_PACKAGE_RETRIEVAL",
                                                   3)],
@@ -101,12 +102,14 @@ class MiscTest(TestCase):
         }
         return self.client.patch(route, data = json.dumps(data))
 
-    def get_challenge_token(self):
-        self.route = '/robot/0/batch'
+    def get_challenge_token(self, robot = 0):
+        self.route = '/robot/' + str(robot) + '/batch'
         r = self.client.get(self.route)
         self.assertEquals(r.status_code, 200)
 
-        self.assertTrue('delivery' in r.json)
+        if 'delivery' not in r.json:
+            return ('', '')
+
         self.assertTrue('senderAuthToken' in r.json['delivery'])
         self.assertTrue('receiverAuthToken' in r.json['delivery'])
 
@@ -118,18 +121,18 @@ class MiscTest(TestCase):
 
     def verify_delivery_sender(self, id, robot = 0):
         bearer = self.login("foo", "bar")
-        (token, _) = self.get_challenge_token()
-        r = self.execute_challenge(token, bearer)
+        (token, _) = self.get_challenge_token(robot)
+        r = self.execute_challenge(token, bearer, robot)
         return r
 
     def verify_delivery_receiver(self, id, robot = 0):
         bearer = self.login("foo2", "bar2")
-        (_, token) = self.get_challenge_token()
-        r = self.execute_challenge(token, bearer)
+        (_, token) = self.get_challenge_token(robot)
+        r = self.execute_challenge(token, bearer, robot)
         return r
 
-    def execute_challenge(self, token, bearer):
-        self.route = '/robot/0/verify'
+    def execute_challenge(self, token, bearer, robot = 0):
+        self.route = '/robot/' + str(robot) + '/verify'
         headers = {'Authorization': 'Bearer ' + str(bearer)}
         data = {'token': token}
         r = self.client.post(self.route, data = json.dumps(data),
@@ -137,7 +140,6 @@ class MiscTest(TestCase):
         return r
 
     def create_delivery_and_legally_transition_to(self, state, robot):
-        self.setUp()
         id = self.setup_delivery()
         currentState = "IN_QUEUE"
 
@@ -145,6 +147,9 @@ class MiscTest(TestCase):
             (targetState, mode) = self.LEGAL_TRANSITIONS[currentState][0]
             r = self.execute_transition(id, targetState, mode, robot)
             self.assertEquals(r.status_code, 200)
+            route = '/delivery/' + str(id)
+            r = self.client.get(route)
+            self.assertEquals(r.json['state'], targetState)
             currentState = targetState
 
         return id
@@ -162,19 +167,21 @@ class MiscTest(TestCase):
 
         return r
 
-    def test_legal_transitions(self):
-        for state in self.POSSIBLE_STATES:
-            id = self.create_delivery_and_legally_transition_to(state, 0)
-            (targetState, mode) = self.LEGAL_TRANSITIONS[state][0]
-            r = self.execute_transition(id, targetState, mode, 0)
-            self.assertEquals(r.status_code, 200)
-
     def test_exception_handler(self):
         r = flaskapp.exception_handler("error")
         self.assertEqual(r[1], 500)
         self.assertEqual(r[0].json['code'], 500)
         self.assertEqual(r[0].json['error'], "Internal server error")
         self.assertEqual(r[0].json['friendly'], "error")
+
+    def test_legal_transitions(self):
+        robot = 0
+        for state in self.POSSIBLE_STATES:
+            id = self.create_delivery_and_legally_transition_to(state, robot)
+            (targetState, mode) = self.LEGAL_TRANSITIONS[state][0]
+            r = self.execute_transition(id, targetState, mode, robot)
+            self.assertEquals(r.status_code, 200)
+            robot += 1
 
 
 if __name__ == '__main__':

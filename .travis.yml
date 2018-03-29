@@ -11,7 +11,7 @@ install:
 # command to run tests
 script:
   - cd flaskapp
-  - coverage run -m unittest discover
+  - coverage run --source . -m unittest discover
 
 after_success:
     coveralls

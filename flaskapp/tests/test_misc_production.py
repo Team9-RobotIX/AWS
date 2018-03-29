@@ -198,6 +198,34 @@ class MiscTestProduction(TestCase):
                     self.assertNotEquals(r.status_code, 500)
                     robot += 1
 
+    def get_lock_state(self, robot = 0):
+        route = '/robot/' + str(robot) + '/lock'
+        r = self.client.get(route)
+        return r.json['lock']
+
+    def test_legal_transitions_correctly_trigger_lock(self):
+        lock_state_mapping = {
+            "MOVING_TO_SOURCE": True,
+            "AWAITING_AUTHENTICATION_SENDER": True,
+            "AWAITING_PACKAGE_LOAD": False,
+            "PACKAGE_LOAD_COMPLETE": True,
+            "MOVING_TO_DESTINATION": True,
+            "AWAITING_AUTHENTICATION_RECEIVER": True,
+            "AWAITING_PACKAGE_RETRIEVAL": False,
+            "PACKAGE_RETRIEVAL_COMPLETE": True,
+            "COMPLETE": True
+        }
+
+        robot = 0
+        for state in self.POSSIBLE_STATES:
+            id = self.create_delivery_and_legally_transition_to(state, robot)
+            (targetState, mode) = self.LEGAL_TRANSITIONS[state][0]
+            r = self.execute_transition(id, targetState, mode, robot)
+            self.assertEquals(r.status_code, 200)
+            self.assertEquals(self.get_lock_state(robot),
+                              lock_state_mapping[targetState])
+            robot += 1
+
 
 if __name__ == '__main__':
     unittest.main()

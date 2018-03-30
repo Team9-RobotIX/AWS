@@ -586,7 +586,7 @@ def robot_update_correction(id, data):
     if 'correction' not in data:
         raise BadRequestException("You have not supplied a correction angle!")
     elif not isinstance(data['correction'], float):
-        raise BadRequestException("Supplied angle is not a float")
+        raise BadRequestException("Supplied correction is not a float")
 
     r = get_robot(id)
     r.correction = data['correction']

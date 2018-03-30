@@ -9,7 +9,9 @@ install:
   - cp flaskapp/config.example.py flaskapp/config.py
 
 # command to run tests
-script: coverage run --source flaskapp --omit '*/venv/*' flaskapp/tests.py
+script:
+  - cd flaskapp
+  - coverage run --source . -m unittest discover
 
 after_success:
     coveralls

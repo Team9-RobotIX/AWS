@@ -48,6 +48,16 @@ class InvalidBearerException(Exception):
     pass
 
 
+def get_data_object():
+    data = {}
+    try:
+        data = request.get_json(force=True)
+    except Exception as e:
+        pass
+
+    return data
+
+
 def get_username(headers):
     if 'Authorization' not in headers:
         raise InvalidBearerException("No Authorization header found.")
@@ -98,7 +108,7 @@ def root():
 # Reads the stored values and outputs them.
 @app.route('/login', methods = ['POST'])
 def login():
-    data = request.get_json(force=True)
+    data = get_data_object()
     if 'username' not in data:
         return bad_request("Missing username")
     if 'password' not in data:
@@ -121,7 +131,7 @@ def login():
 
 @app.route('/register', methods = ['POST'])
 def register():
-    data = request.get_json(force=True)
+    data = get_data_object()
     if 'username' not in data:
         return bad_request("Missing username")
     if 'password' not in data:
@@ -142,6 +152,19 @@ def register():
         return ''
     else:
         return bad_request("Invalid username/password")
+
+
+#                                            #
+#                 USER ROUTES                #
+#                                            #
+@app.route('/users', methods = ['GET'])
+def get_users():
+    usersTable = get_db()['users']
+    users = []
+    for user in usersTable.all():
+        users.append({"username": user['username']})
+
+    return jsonify(users)
 
 
 #                                            #
@@ -206,7 +229,7 @@ def deliveries_post():
     if 'deliveryQueueCounter' not in get_cache():
         get_cache()['deliveryQueueCounter'] = 0
 
-    data = request.get_json(force=True)
+    data = get_data_object()
     counter = get_cache()['deliveryQueueCounter']
 
     # Check for errors in input
@@ -282,6 +305,11 @@ def deliveries_delete():
         delete_delivery_by_id(id)
 
     get_cache()['deliveryQueueCounter'] = 0
+
+    # TODO: This shouldn't be necessary
+    if 'robots' in get_cache():
+        del get_cache()['robots']
+
     return ''
 
 
@@ -297,11 +325,11 @@ def delivery_get(id):
 
 @app.route('/delivery/<int:id>', methods = ['PATCH'])
 def delivery_patch(id):
-    data = request.get_json(force=True)
+    data = get_data_object()
     return patch_delivery_with_json(id, data)
 
 
-def patch_delivery_with_json(id, data):
+def patch_delivery_with_json(id, data, force = False):
     delivery = get_delivery_by_id(id)
     if delivery is None:
         return file_not_found("There's no delivery with that ID!")
@@ -310,6 +338,23 @@ def patch_delivery_with_json(id, data):
         return bad_request("Missing state")
     if data['state'] not in [e.name for e in DeliveryState]:
         return bad_request("Invalid state")
+
+    # Check if PATCH is valid
+    valid_patches = {
+        "IN_QUEUE": "MOVING_TO_SOURCE",
+        "MOVING_TO_SOURCE": "AWAITING_AUTHENTICATION_SENDER",
+        "AWAITING_PACKAGE_LOAD": "PACKAGE_LOAD_COMPLETE",
+        "PACKAGE_LOAD_COMPLETE": "MOVING_TO_DESTINATION",
+        "MOVING_TO_DESTINATION": "AWAITING_AUTHENTICATION_RECEIVER",
+        "AWAITING_PACKAGE_RETRIEVAL": "PACKAGE_RETRIEVAL_COMPLETE",
+        "PACKAGE_RETRIEVAL_COMPLETE": "COMPLETE"
+    }
+
+    if not force and ('TESTING' not in app.config or
+                      not app.config['TESTING']):
+        if (delivery.state.name not in valid_patches or
+                valid_patches[delivery.state.name] != data['state']):
+            return bad_request(str(delivery.state.name))
 
     state = DeliveryState[data['state']]
     if state == DeliveryState.MOVING_TO_SOURCE:
@@ -381,7 +426,7 @@ def targets_get():
 @app.route('/targets', methods = ['POST'])
 def targets_post():
     targetsTable = get_db()['targets']
-    data = request.get_json(force=True)
+    data = get_data_object()
 
     if 'name' not in data:
         return bad_request("Must provide name for target.")
@@ -439,7 +484,7 @@ def target_patch(id):
     if target is None:
         return file_not_found("This target does not exist")
 
-    data = request.get_json(force=True)
+    data = get_data_object()
     if 'color' in data:
         if not isinstance(data['color'], basestring):  # NOQA
             return bad_request("Color must be of type string")
@@ -502,7 +547,7 @@ def robot_batch_get(id):
 
 @app.route('/robot/<int:id>/batch', methods = ['POST'])
 def robot_batch_post(id):
-    data = request.get_json(force=True)
+    data = get_data_object()
     robot_update_correction(id, data)
     robot_update_distance(id, data)
     robot_update_motor(id, data)
@@ -529,11 +574,11 @@ def robot_update_correction(id, data):
 
 @app.route('/robot/<int:id>/correction', methods = ['POST'])
 def robot_correction_post(id):
-    data = request.get_json(force=True)
+    data = get_data_object()
 
     try:
         robot_update_correction(id, data)
-    except BadRequestException as e:
+    except Exception as e:
         return bad_request(e.message)
 
     return robot_correction_get(id)
@@ -558,7 +603,7 @@ def robot_update_angle(id, data):
 
 @app.route('/robot/<int:id>/angle', methods = ['POST'])
 def robot_angle_post(id):
-    data = request.get_json(force=True)
+    data = get_data_object()
 
     try:
         robot_update_angle(id, data)
@@ -587,7 +632,7 @@ def robot_update_distance(id, data):
 
 @app.route('/robot/<int:id>/distance', methods = ['POST'])
 def robot_distance_post(id):
-    data = request.get_json(force=True)
+    data = get_data_object()
 
     try:
         robot_update_distance(id, data)
@@ -616,7 +661,7 @@ def robot_update_motor(id, data):
 
 @app.route('/robot/<int:id>/motor', methods = ['POST'])
 def robot_motor_post(id):
-    data = request.get_json(force=True)
+    data = get_data_object()
 
     try:
         robot_update_motor(id, data)
@@ -635,7 +680,7 @@ def robot_lock_get(id):
 
 @app.route('/robot/<int:id>/lock', methods = ['POST'])
 def robot_lock_post(id):
-    data = request.get_json(force=True)
+    data = get_data_object()
     if 'lock' not in data:
         return bad_request("You have not supplied a lock state!")
     elif not isinstance(data['lock'], bool):
@@ -649,7 +694,7 @@ def robot_lock_post(id):
 # Verify routes
 @app.route('/robot/<int:id>/verify', methods = ['POST'])
 def robot_verify_post(id):
-    data = request.get_json(force=True)
+    data = get_data_object()
 
     if 'token' not in data:
         return bad_request("Must supply a challenge token")
@@ -663,12 +708,18 @@ def robot_verify_post(id):
 
     trueToken = None
     robot = get_robot(id)
+
     delivery = get_delivery_by_id(robot.delivery)
+    if delivery is None:
+        return bad_request("This robot is not presently delivering")
+
     robotState = delivery.state
     if robotState == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         trueToken = delivery.senderAuthToken
     elif robotState == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         trueToken = delivery.receiverAuthToken
+    else:
+        return bad_request("This robot is not awaiting any verification.")
 
     if data['token'] != trueToken:
         return unauthorized("Challenge token doesn't match QR")
@@ -676,13 +727,13 @@ def robot_verify_post(id):
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         if delivery.sender == username:
             patch_delivery_with_json(id, {
-                "state": "AWAITING_PACKAGE_LOAD"})
+                "state": "AWAITING_PACKAGE_LOAD"}, True)
             return ''
 
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         if delivery.receiver == username:
             patch_delivery_with_json(id, {
-                "state": "AWAITING_PACKAGE_RETRIEVAL"})
+                "state": "AWAITING_PACKAGE_RETRIEVAL"}, True)
             return ''
 
     return unauthorized("You are not allowed to open the box!")
@@ -728,14 +779,21 @@ def file_not_found(friendly):
     return jsonify(data), error_code
 
 
+@app.errorhandler(BadRequestException)
+def bad_request_exception_handler(friendly):
+    return jsonify({"code": 400, "error": "Bad request",
+                    "friendly": str(friendly)}), 400
+
+
 @app.errorhandler(Exception)
 def exception_handler(error):
-    return "Oh no! "  + repr(error), 400
+    if 'TESTING' in app.config and app.config['TESTING']:
+        return jsonify({"code": 500, "error": "Internal server error",
+                        "friendly": str(error)}), 500
 
-
-@app.errorhandler(401)
-def custom_401(error):
-    return 'Access denied', 401
+    return jsonify({"code": 500, "error": "Internal server error",
+                    "friendly": "Internal server error. " +
+                    "Error messages are suppressed in production mode."}), 500
 
 
 def main():

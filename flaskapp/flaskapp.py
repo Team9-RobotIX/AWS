@@ -155,6 +155,19 @@ def register():
 
 
 #                                            #
+#                 USER ROUTES                #
+#                                            #
+@app.route('/users', methods = ['GET'])
+def get_users():
+    usersTable = get_db()['users']
+    users = []
+    for user in usersTable.all():
+        users.append({"username": user['username']})
+
+    return jsonify(users)
+
+
+#                                            #
 #              DELIVERY ROUTES               #
 #                                            #
 def get_delivery_by_id(id):

@@ -511,6 +511,22 @@ def target_delete(id):
 
 
 #                                         #
+#            BATCH BATCH ROUTE            #
+#                                         #
+@app.route('/batch', methods = ['POST'])
+def robot_batch_batch_post():
+    data = get_data_object()
+    for obj in data:
+        if 'robot' not in obj:
+            return bad_request('No robot specified.')
+
+        id = obj['robot']
+        post_batch_robot(id, obj)
+
+    return ''
+
+
+#                                         #
 #              ROBOT ROUTES               #
 #                                         #
 def get_robot(id):
@@ -545,13 +561,17 @@ def robot_batch_get(id):
     return jsonify(response)
 
 
-@app.route('/robot/<int:id>/batch', methods = ['POST'])
-def robot_batch_post(id):
-    data = get_data_object()
+def post_batch_robot(id, data):
     robot_update_correction(id, data)
     robot_update_distance(id, data)
     robot_update_motor(id, data)
     robot_update_angle(id, data)
+
+
+@app.route('/robot/<int:id>/batch', methods = ['POST'])
+def robot_batch_post(id):
+    data = get_data_object()
+    post_batch_robot(id, data)
     return robot_batch_get(id)
 
 

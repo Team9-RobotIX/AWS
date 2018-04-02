@@ -434,7 +434,7 @@ def targets_post():
         return bad_request("Name must be string")
     elif 'description' in data and not isinstance(data['description'], basestring):  # NOQA
         return bad_request("Description must be string")
-    elif 'color' in data and not isinstance(data['color'], str):
+    elif 'color' in data and not isinstance(data['color'], basestring):  # NOQA
         return bad_request("Color must be string")
 
     obj = {

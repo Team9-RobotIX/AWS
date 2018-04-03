@@ -134,6 +134,10 @@ class VerifyTest(TestCase):
         r = self.client.get(self.route)
         self.assertEquals(r.json['state'], "AWAITING_PACKAGE_LOAD")
 
+        self.route = "/robot/0/batch"
+        r = self.client.get(self.route)
+        self.assertEquals(r.json['delivery']['state'], "AWAITING_PACKAGE_LOAD")
+
     def test_post_verify_auth_receiver(self):
         self.setup_delivery()
         self.simulate_delivery_state_changes(
@@ -146,6 +150,10 @@ class VerifyTest(TestCase):
         self.route = "/delivery/0"
         r = self.client.get(self.route)
         self.assertEquals(r.json['state'], "AWAITING_PACKAGE_RETRIEVAL")
+
+        self.route = "/robot/0/batch"
+        r = self.client.get(self.route)
+        self.assertEquals(r.json['delivery']['state'], "AWAITING_PACKAGE_RETRIEVAL")
 
     def test_post_verify_error_robot_not_delivering(self):
         self.setup_delivery()

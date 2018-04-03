@@ -746,13 +746,13 @@ def robot_verify_post(id):
 
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:
         if delivery.sender == username:
-            patch_delivery_with_json(id, {
+            patch_delivery_with_json(delivery.id, {
                 "state": "AWAITING_PACKAGE_LOAD"}, True)
             return ''
 
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_RECEIVER:
         if delivery.receiver == username:
-            patch_delivery_with_json(id, {
+            patch_delivery_with_json(delivery.id, {
                 "state": "AWAITING_PACKAGE_RETRIEVAL"}, True)
             return ''
 

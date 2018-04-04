@@ -93,6 +93,12 @@ def force_cache_sync(exc):
         pass
 
 
+def sanitize_input(old):
+    new = old.replace('"', '\\"')
+    new = new.replace("'", "\\'")
+    return new
+
+
 @app.teardown_appcontext
 def close_cache(error):
     if hasattr(g, 'cache'):
@@ -114,8 +120,8 @@ def login():
     if 'password' not in data:
         return bad_request("Missing password")
 
-    username = data['username']
-    password = data['password']
+    username = sanitize_input(data['username'])
+    password = sanitize_input(data['password'])
 
     usersTable = get_db()['users']
     user = usersTable.find_one(username=username)
@@ -137,8 +143,8 @@ def register():
     if 'password' not in data:
         return bad_request("Missing password")
 
-    username = data['username']
-    password = data['password']
+    username = sanitize_input(data['username'])
+    password = sanitize_input(data['password'])
     hashedPassword = bcrypt.generate_password_hash(password)
 
     usersTable = get_db()['users']
@@ -249,10 +255,17 @@ def deliveries_post():
             not isinstance(data['receiver'], basestring)):  # NOQA
         return bad_request("Must provide both a sender and a receiver")
 
+    data_name = sanitize_input(data['name'])
+    data_sender = sanitize_input(data['sender'])
+    data_receiver = sanitize_input(data['receiver'])
+    data_from = data['from']
+    data_to = data['to']
+    data_priority = data['priority']
+
     # Check for target existence
     targetsTable = get_db()['targets']
-    fromTarget = targetsTable.find_one(id=data['from'])
-    toTarget = targetsTable.find_one(id=data['to'])
+    fromTarget = targetsTable.find_one(id=data_from)
+    toTarget = targetsTable.find_one(id=data_to)
 
     if fromTarget is None:
         return bad_request("From target doesn't exist")
@@ -268,10 +281,10 @@ def deliveries_post():
 
     # Check for sender/receiver existence
     usersTable = get_db()['users']
-    senderUser = usersTable.find_one(username=data['sender'])
-    receiverUser = usersTable.find_one(username=data['receiver'])
+    senderUser = usersTable.find_one(username=data_sender)
+    receiverUser = usersTable.find_one(username=data_receiver)
 
-    if data['sender'] != username:
+    if data_sender != username:
         return bad_request("Sender has to be logged in user.")
 
     if senderUser is None:
@@ -283,12 +296,13 @@ def deliveries_post():
     # Construct delivery object
     d = None
     if 'description' in data:
-        d = Delivery(counter, fromTarget, toTarget, data['sender'],
-                     data['receiver'], data['priority'], data['name'],
-                     data['description'])
+        data_description = sanitize_input(data['description'])
+        d = Delivery(counter, fromTarget, toTarget, data_sender,
+                     data_receiver, data_priority, data_name,
+                     data_description)
     else:
-        d = Delivery(counter, fromTarget, toTarget, data['sender'],
-                     data['receiver'], data['priority'], data['name'])
+        d = Delivery(counter, fromTarget, toTarget, data_sender,
+                     data_receiver, data_priority, data_name)
 
     # Add object
     add_delivery_with_id(counter, d)
@@ -437,15 +451,19 @@ def targets_post():
     elif 'color' in data and not isinstance(data['color'], basestring):  # NOQA
         return bad_request("Color must be string")
 
+    data_name = sanitize_input(data['name'])
+
     obj = {
-        'name': data['name']
+        'name': data_name
     }
 
     if 'description' in data:
-        obj['description'] = data['description']
+        data_description = sanitize_input(data['description'])
+        obj['description'] = data_description
 
     if 'color' in data:
-        obj['color'] = data['color']
+        data_color = sanitize_input(data['color'])
+        obj['color'] = data_color
 
     targetsTable.insert(obj)
 
@@ -489,7 +507,8 @@ def target_patch(id):
         if not isinstance(data['color'], basestring):  # NOQA
             return bad_request("Color must be of type string")
 
-        targetsTable.update({'id': id, 'color': data['color']}, ['id'])
+        data_color = sanitize_input(data['color'])
+        targetsTable.update({'id': id, 'color': data_color}, ['id'])
 
     return target_get(id)
 
@@ -721,6 +740,8 @@ def robot_verify_post(id):
     elif not isinstance(data['token'], basestring):         # NOQA
         return bad_request("Challenge token must be string")
 
+    data_token = sanitize_input(data['token'])
+
     try:
         username = get_username(request.headers)
     except InvalidBearerException as e:
@@ -741,7 +762,7 @@ def robot_verify_post(id):
     else:
         return bad_request("This robot is not awaiting any verification.")
 
-    if data['token'] != trueToken:
+    if data_token != trueToken:
         return unauthorized("Challenge token doesn't match QR")
 
     if delivery.state == DeliveryState.AWAITING_AUTHENTICATION_SENDER:

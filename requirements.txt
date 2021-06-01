@@ -9,7 +9,7 @@ coverage==4.4.2
 idna==2.6
 itsdangerous==0.24
 requests==2.18.4
-urllib3==1.22
+urllib3==1.26.5
 wsgiref==0.1.2
 dataset==1.0.5
 Flask-Bcrypt==0.7.1
